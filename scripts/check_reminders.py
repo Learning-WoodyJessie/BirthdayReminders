@@ -69,7 +69,10 @@ def generate_message(person: dict, occasion: str, days_away: int,
     """
     from openai import OpenAI
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    raw_key = os.environ.get("OPENAI_API_KEY", "")
+    key = raw_key.strip()
+    print(f"  [debug] OPENAI_API_KEY length={len(key)}, starts_with={key[:7]!r}")
+    client = OpenAI(api_key=key)
 
     timing = (
         "today is their special day" if days_away == 0
