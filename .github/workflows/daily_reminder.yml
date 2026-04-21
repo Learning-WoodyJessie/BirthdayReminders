@@ -12,10 +12,11 @@ jobs:
   remind:
     runs-on: ubuntu-latest
     env:
-      OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
-      WHATSAPP_ACCESS_TOKEN:    ${{ secrets.WHATSAPP_ACCESS_KEY }}
-      WHATSAPP_PHONE_NUMBER_ID: ${{ secrets.WHATSAPP_PHONE_ID }}
-      MY_WHATSAPP:              ${{ secrets.MY_WHATSAPP_NO }}
+      OPENAI_API_KEY:   ${{ secrets.OPENAI_API_KEY }}
+      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN:  ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TWILIO_FROM:        ${{ secrets.TWILIO_FROM }}
+      MY_WHATSAPP:        ${{ secrets.MY_WHATSAPP_NO }}
 
     steps:
       - name: Checkout repo
@@ -31,10 +32,11 @@ jobs:
 
       - name: Verify secrets are set
         run: |
-          if [ -z "$OPENAI_API_KEY" ]; then echo "ERROR: OPENAI_API_KEY is empty"; exit 1; fi
-          if [ -z "$WHATSAPP_ACCESS_TOKEN" ]; then echo "ERROR: WHATSAPP_ACCESS_TOKEN is empty"; exit 1; fi
-          if [ -z "$WHATSAPP_PHONE_NUMBER_ID" ]; then echo "ERROR: WHATSAPP_PHONE_NUMBER_ID is empty"; exit 1; fi
-          if [ -z "$MY_WHATSAPP" ]; then echo "ERROR: MY_WHATSAPP is empty"; exit 1; fi
+          if [ -z "$OPENAI_API_KEY" ];     then echo "ERROR: OPENAI_API_KEY is empty";     exit 1; fi
+          if [ -z "$TWILIO_ACCOUNT_SID" ]; then echo "ERROR: TWILIO_ACCOUNT_SID is empty"; exit 1; fi
+          if [ -z "$TWILIO_AUTH_TOKEN" ];  then echo "ERROR: TWILIO_AUTH_TOKEN is empty";  exit 1; fi
+          if [ -z "$TWILIO_FROM" ];        then echo "ERROR: TWILIO_FROM is empty";        exit 1; fi
+          if [ -z "$MY_WHATSAPP" ];        then echo "ERROR: MY_WHATSAPP is empty";        exit 1; fi
           echo "All secrets present ✓"
 
       - name: Run reminder check

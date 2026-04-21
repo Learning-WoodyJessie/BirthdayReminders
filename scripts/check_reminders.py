@@ -13,7 +13,6 @@ and:
 import os
 import sys
 import yaml
-import requests
 from datetime import date, datetime
 from pathlib import Path
 
@@ -118,35 +117,26 @@ Match the warmth/formality to the relationship. No excessive emojis. Sound human
 # ── WhatsApp sending ──────────────────────────────────────────────────────────
 
 def send_whatsapp(to: str, message: str, label: str = "") -> bool:
-    """Send a text message via Meta WhatsApp Cloud API.
-    `to` can be a phone number (+14155550001) or a group ID.
-    """
-    phone_number_id = os.environ["WHATSAPP_PHONE_NUMBER_ID"]
-    access_token = os.environ["WHATSAPP_ACCESS_TOKEN"]
+    """Send a WhatsApp message via Twilio."""
+    from twilio.rest import Client
 
-    # Strip leading + for the API
-    recipient = to.lstrip("+")
+    account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+    auth_token  = os.environ["TWILIO_AUTH_TOKEN"]
+    from_number = os.environ["TWILIO_FROM"]   # e.g. +14155238886 (sandbox) or your Twilio number
 
-    url = f"https://graph.facebook.com/v19.0/{phone_number_id}/messages"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": recipient,
-        "type": "text",
-        "text": {"body": message},
-    }
-
-    resp = requests.post(url, json=payload, headers=headers, timeout=15)
+    client = Client(account_sid, auth_token)
     tag = f"[{label}] " if label else ""
-    if resp.status_code == 200:
-        print(f"  {tag}✓ Sent to {to}")
+    try:
+        msg = client.messages.create(
+            from_=f"whatsapp:{from_number}",
+            to=f"whatsapp:{to}",
+            body=message,
+        )
+        print(f"  {tag}✓ Sent to {to} (sid: {msg.sid})")
         return True
-    print(f"  {tag}✗ Error {resp.status_code} sending to {to}: {resp.text}",
-          file=sys.stderr)
-    return False
+    except Exception as e:
+        print(f"  {tag}✗ Error sending to {to}: {e}", file=sys.stderr)
+        return False
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
