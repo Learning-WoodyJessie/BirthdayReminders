@@ -67,12 +67,9 @@ def generate_message(person: dict, occasion: str, days_away: int,
       "direct" — message to send directly to the person
       "group"  — message suitable for a WhatsApp group
     """
-    from openai import OpenAI
+    import anthropic
 
-    raw_key = os.environ.get("OPENAI_API_KEY", "")
-    key = raw_key.strip()
-    print(f"  [debug] OPENAI_API_KEY length={len(key)}, starts_with={key[:7]!r}")
-    client = OpenAI(api_key=key)
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
     timing = (
         "today is their special day" if days_away == 0
@@ -107,12 +104,12 @@ Notes: {person.get('notes') or 'none provided'}
 {audience_instructions[audience]}
 Match the warmth/formality to the relationship. No excessive emojis. Sound human."""
 
-    response = client.chat.completions.create(
-        model="gpt-4o",
+    response = client.messages.create(
+        model="claude-opus-4-6",
         max_tokens=300,
         messages=[{"role": "user", "content": prompt}]
     )
-    return response.choices[0].message.content.strip()
+    return response.content[0].text.strip()
 
 
 # ── WhatsApp sending ──────────────────────────────────────────────────────────
