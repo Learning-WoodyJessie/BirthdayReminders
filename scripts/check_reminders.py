@@ -156,7 +156,7 @@ def main():
     reminder_days: list[int] = config.get("reminder_days", [7, 3, 0])
     my_number: str = os.environ.get("MY_WHATSAPP") or config.get("my_whatsapp", "")
 
-    if not my_number or my_number.startswith("+1XXX"):
+    if not my_number:
         print("ERROR: MY_WHATSAPP not set. Add it as a GitHub Secret.", file=sys.stderr)
         sys.exit(1)
 
