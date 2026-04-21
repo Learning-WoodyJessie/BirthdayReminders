@@ -24,7 +24,7 @@ jobs:
       - name: Run reminder check
         env:
           OPENAI_API_KEY:            ${{ secrets.OPENAI_API_KEY }}
-          WHATSAPP_ACCESS_TOKEN:     ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
-          WHATSAPP_PHONE_NUMBER_ID:  ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          WHATSAPP_ACCESS_TOKEN:     ${{ secrets.WHATSAPP_ACCESS_KEY }}
+          WHATSAPP_PHONE_NUMBER_ID:  ${{ secrets.WHATSAPP_PHONE_NUMBER }}
           MY_WHATSAPP:               ${{ secrets.MY_WHATSAPP }}
         run: python scripts/check_reminders.py
