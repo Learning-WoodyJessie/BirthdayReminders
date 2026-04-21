@@ -12,19 +12,10 @@
 #                  get group IDs via: GET /v19.0/{phone-number-id}/groups  (see README)
 
 people:
-  - name: "Example Person"
+  - name: "Sush"
     relationship: "best friend"
-    birthday: "1990-07-22"
+    birthday: "--04-21"
     anniversary: null
-    notes: "Met in college, loves hiking, recently had a baby"
-    phone: "+14155550001"        # direct message sent to them on day-of
-    groups:                      # also post to these groups on day-of
-      - "GROUP_ID_1"
-
-  - name: "Example Parent"
-    relationship: "mother"
-    birthday: "1958-03-10"
-    anniversary: null
-    notes: "Retired teacher, loves gardening and cooking"
-    phone: null
+    notes: null
+    phone: "+19787614185"
     groups: []
