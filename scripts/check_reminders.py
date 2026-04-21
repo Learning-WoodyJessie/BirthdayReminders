@@ -2,7 +2,8 @@
 """
 scripts/check_reminders.py — thin orchestrator.
 
-Load resources → find events → route → generate → send digest.
+Load resources → find events → route → generate → store in Supabase
+→ include Warmly edit link → send digest.
 """
 
 import os
@@ -15,9 +16,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from tools.calendar       import find_upcoming
-from tools.whatsapp       import send_whatsapp
-from prompts.messages     import generate_message
+from tools.calendar        import find_upcoming
+from tools.whatsapp        import send_whatsapp
+from tools.warmly          import create_warmly_link
+from prompts.messages      import generate_message
 from router.message_router import route
 
 
@@ -65,14 +67,21 @@ def main():
             tone         = decision["tone"],
         )
 
-        digest_parts.append(f"{decision['label']}\n\n{message}")
+        # ── store in Supabase, get Warmly edit link ───────────────────────────
+        warmly_link = create_warmly_link(person, occasion, message)
+
+        # ── build digest section ──────────────────────────────────────────────
+        section = f"{decision['label']}\n\n{message}"
+        if warmly_link:
+            section += f"\n\n✏️ *Personalise & send:*\n{warmly_link}"
+        digest_parts.append(section)
 
     # ── send digest ───────────────────────────────────────────────────────────
     if not digest_parts:
         print("\nNo reminders for today.")
         return
 
-    separator  = "\n\n" + "─" * 28 + "\n\n"
+    separator   = "\n\n" + "─" * 28 + "\n\n"
     full_digest = (
         f"🗓 *Reminders — {today.strftime('%B %d, %Y')}*\n\n"
         + separator.join(digest_parts)
