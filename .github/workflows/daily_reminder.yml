@@ -2,7 +2,7 @@ name: Daily Birthday & Anniversary Reminders
 
 on:
   schedule:
-    - cron: "0 8 * * *"   # 8:00 AM UTC daily — adjust to your timezone
+    - cron: "0 15 * * *"  # 7:00 AM PST (UTC-8) daily
   workflow_dispatch:       # allow manual run from GitHub Actions UI
 
 env:
