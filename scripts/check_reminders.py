@@ -191,27 +191,6 @@ def main():
             )
             digest_parts.append(f"{label}\n\n{owner_msg}")
 
-            # Day-of actions
-            if days_away == 0:
-
-                # 2. Direct message to the person
-                phone = person.get("phone")
-                if phone:
-                    print(f"  Sending direct message to {name} ({phone})")
-                    direct_msg = generate_message(person, occasion, 0, audience="direct")
-                    ok = send_whatsapp(phone, direct_msg, label=f"direct→{name}")
-                    if not ok:
-                        errors.append(f"Failed direct message to {name}")
-
-                # 3. Group messages
-                groups: list[str] = person.get("groups") or []
-                for group_id in groups:
-                    print(f"  Posting to group {group_id} for {name}")
-                    group_msg = generate_message(person, occasion, 0, audience="group")
-                    ok = send_whatsapp(group_id, group_msg, label=f"group→{name}")
-                    if not ok:
-                        errors.append(f"Failed group message for {name} → {group_id}")
-
     # ── Send owner digest ──
     if not digest_parts:
         print("\nNo reminders for today.")
