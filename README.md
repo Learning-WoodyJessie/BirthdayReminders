@@ -36,15 +36,15 @@ curl -X GET \
 ```
 Copy the group IDs into `data/people.yaml` under `groups:`.
 
-### 3. Anthropic API key
-Get one at [console.anthropic.com](https://console.anthropic.com).
+### 3. OpenAI API key
+Get one at [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
 
 ### 4. GitHub Secrets
 In your repo → *Settings → Secrets and variables → Actions*, add:
 
 | Secret | Value |
 |---|---|
-| `ANTHROPIC_API_KEY` | Your Anthropic key |
+| `OPENAI_API_KEY` | Your OpenAI key |
 | `WHATSAPP_ACCESS_TOKEN` | Meta permanent access token |
 | `WHATSAPP_PHONE_NUMBER_ID` | From Meta API Setup |
 | `MY_WHATSAPP` | Your number e.g. `+14155552671` |
