@@ -1,5 +1,5 @@
 # BirthdayReminders configuration
-reminder_days: [7, 3, 0]   # days before event: 7 = 1 week out, 3 = 3 days out, 0 = day-of
+reminder_days: [3, 0]   # 3 = advance reminder with draft, 0 = day-of wish to copy-paste
 
 # Your WhatsApp number (receives all reminders)
 my_whatsapp: "+1XXXXXXXXXX"   # replace with your number in E.164 format e.g. +14155552671
