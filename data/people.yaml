@@ -1,0 +1,30 @@
+# Add your contacts here. Each person can have a birthday, anniversary, or both.
+#
+# Fields:
+#   name         — display name
+#   relationship — e.g. mother, best friend, colleague, partner, sibling
+#   birthday     — YYYY-MM-DD  (use --MM-DD if birth year unknown)
+#   anniversary  — YYYY-MM-DD  (optional)
+#   notes        — hobbies, recent life events, shared memories (helps Claude personalise)
+#   phone        — E.164 format e.g. +14155550001
+#                  if set: you receive a reminder AND a direct message is sent to them on day-of
+#   groups       — list of WhatsApp group IDs to post into on day-of
+#                  get group IDs via: GET /v19.0/{phone-number-id}/groups  (see README)
+
+people:
+  - name: "Example Person"
+    relationship: "best friend"
+    birthday: "1990-07-22"
+    anniversary: null
+    notes: "Met in college, loves hiking, recently had a baby"
+    phone: "+14155550001"        # direct message sent to them on day-of
+    groups:                      # also post to these groups on day-of
+      - "GROUP_ID_1"
+
+  - name: "Example Parent"
+    relationship: "mother"
+    birthday: "1958-03-10"
+    anniversary: null
+    notes: "Retired teacher, loves gardening and cooking"
+    phone: null
+    groups: []

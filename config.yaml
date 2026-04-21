@@ -1,0 +1,12 @@
+# BirthdayReminders configuration
+reminder_days: [7, 3, 0]   # days before event: 7 = 1 week out, 3 = 3 days out, 0 = day-of
+
+# Your WhatsApp number (receives all reminders)
+my_whatsapp: "+1XXXXXXXXXX"   # replace with your number in E.164 format e.g. +14155552671
+
+# WhatsApp Cloud API — set these as GitHub Secrets (see README)
+# WHATSAPP_ACCESS_TOKEN
+# WHATSAPP_PHONE_NUMBER_ID
+
+# Claude API — set as GitHub Secret
+# ANTHROPIC_API_KEY

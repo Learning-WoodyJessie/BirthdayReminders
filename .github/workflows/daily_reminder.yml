@@ -1,0 +1,30 @@
+name: Daily Birthday & Anniversary Reminders
+
+on:
+  schedule:
+    - cron: "0 8 * * *"   # 8:00 AM UTC daily — adjust to your timezone
+  workflow_dispatch:       # allow manual run from GitHub Actions UI
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run reminder check
+        env:
+          ANTHROPIC_API_KEY:         ${{ secrets.ANTHROPIC_API_KEY }}
+          WHATSAPP_ACCESS_TOKEN:     ${{ secrets.WHATSAPP_ACCESS_TOKEN }}
+          WHATSAPP_PHONE_NUMBER_ID:  ${{ secrets.WHATSAPP_PHONE_NUMBER_ID }}
+          MY_WHATSAPP:               ${{ secrets.MY_WHATSAPP }}
+        run: python scripts/check_reminders.py
