@@ -11,6 +11,7 @@ env:
 jobs:
   remind:
     runs-on: ubuntu-latest
+    environment: Prod
 
     steps:
       - name: Checkout repo
