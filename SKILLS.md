@@ -1,190 +1,145 @@
-# Ripple — Claude Code Skills
+# BirthdayReminders — Claude Code Skills
 
-This file defines reusable skills for Claude Code in this project.
-Invoke any skill by typing `/ripple-<skill>` in Claude Code.
+Invoke any skill by typing the skill name in Claude Code for this project.
 
 ---
 
-## `/ripple-context`
-**When to use:** Start of any new session. Loads full project context.
+## `/br-context`
+**Load full project context at the start of any session.**
 
 ```
-You are working on Ripple — an AI-powered celebration platform.
+You are working on BirthdayReminders — a personal WhatsApp reminder system.
 
-Read these files in order before doing anything:
-1. docs/PROJECT_CHARTER.md  — vision, users, principles
-2. docs/PRD.md              — full feature requirements by phase
-3. CLAUDE.md                — architecture, modules, constraints
+Read CLAUDE.md first for architecture, constraints, and file map.
 
-Current state:
-- Phase 1 backend core is built (tools/, prompts/, router/, scripts/)
-- Data store: YAML files (data/people.yaml)
-- Delivery: Twilio WhatsApp
-- AI: OpenAI GPT-4o
-- Scheduler: GitHub Actions (7AM PST daily)
+Key facts:
+- Personal tool (not a product) — simplicity over features
+- Data lives in data/people.yaml (YAML, not a database)
+- GitHub Actions runs daily at 7AM PST via .github/workflows/daily_reminder.yml
+- Delivery: Twilio WhatsApp sandbox → owner's number only
+- AI: OpenAI GPT-4o for message generation
+- Tests: 43 tests in tests/ — all must pass before any push
 - Repo: github.com/Learning-WoodyJessie/BirthdayReminders
 
-Architecture is modular — every feature lives in its own module under modules/.
-Feature flags in core/config.py gate Phase 2 and 3 features.
-Never break the tools/prompts/router separation.
+Architecture layers (never mix them):
+  tools/    → what the system can DO (calendar, whatsapp)
+  prompts/  → what the system can SAY (templates + GPT-4o)
+  router/   → HOW it decides (message_type, tone, label)
+  scripts/  → orchestration only (thin, no business logic)
+
+The product version of this is Ripple (separate repo).
 ```
 
 ---
 
-## `/ripple-new-feature`
-**When to use:** Adding any new feature. Ensures it follows module pattern.
+## `/br-add-person`
+**Add a new person correctly.**
 
 ```
-Before implementing this feature, confirm:
-1. Which phase does it belong to? (1 / 2 / 3)
-2. Which module does it live in? (modules/<name>/)
-3. Does it need a feature flag? (Phase 2+ = yes)
-4. What are the acceptance criteria from PRD.md?
-5. Does it touch core/models.py? (If yes, review dependencies first)
+Add a new person to data/people.yaml.
 
-Module structure to follow:
-  modules/<name>/
-  ├── __init__.py      ← export public interface only
-  ├── models.py        ← data models (if new)
-  ├── service.py       ← business logic
-  ├── repository.py    ← DB queries
-  └── router.py        ← FastAPI routes
+Schema:
+  name:         string (required)
+  relationship: string (required) — see router/message_router.py CLOSE_RELATIONSHIPS
+  birthday:     YYYY-MM-DD or --MM-DD if year unknown (required)
+  anniversary:  YYYY-MM-DD (optional, null if none)
+  notes:        free text — hobbies, life events, memories (more = better messages)
+  phone:        E.164 e.g. +14155550001 (optional, null if not known)
+  groups:       [] (leave empty)
 
-Frontend structure:
-  frontend/app/<name>/
-  ├── page.tsx
-  ├── components/
-  └── hooks/
+After adding, verify with:
+  python scripts/list_upcoming.py 365
 
-Never import directly between modules — use core/models.py as the contract.
-Always write the service.py before the router.py.
+Make sure the person appears in the output with the correct date.
 ```
 
 ---
 
-## `/ripple-debug`
-**When to use:** Something is broken. Structured debugging.
+## `/br-debug`
+**Debug a failed workflow run.**
 
 ```
-Debug this issue systematically:
+Debug this BirthdayReminders failure systematically:
 
-1. Identify which layer the error is in:
-   - tools/     → delivery or calendar failure
-   - prompts/   → AI generation failure
-   - router/    → wrong routing decision
-   - modules/   → business logic failure
-   - api/       → endpoint failure
-   - frontend/  → UI/data fetching failure
+1. Check which step failed in GitHub Actions logs
+2. Common failures and fixes:
+   - "OPENAI_API_KEY empty"   → check GitHub repo secrets (not environment secrets)
+   - "Twilio error 401"       → TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN wrong
+   - "Twilio error 63007"     → recipient hasn't joined Twilio sandbox
+   - "MY_WHATSAPP not set"    → MY_WHATSAPP_NO secret missing or empty
+   - "No reminders for today" → no one has birthday/anniversary in reminder_days window
+3. Run tests locally first: python -m pytest tests/ -v
+4. Test locally with real env vars: python scripts/check_reminders.py
+5. Check config.yaml reminder_days — must include 3 and 0
 
-2. Check GitHub Actions logs if it's a scheduled job failure.
-
-3. For WhatsApp errors: check Twilio console logs first.
-
-4. For OpenAI errors: check API key, model name (gpt-4o), token limits.
-
-5. For scheduling errors: check config.yaml reminder_days matches expectation.
-
-Always fix the root cause. Never bypass with try/except that swallows errors.
+Never bypass errors with bare except. Fix the root cause.
 ```
 
 ---
 
-## `/ripple-add-person`
-**When to use:** Adding a new contact to data/people.yaml.
+## `/br-test`
+**Run and validate the test suite.**
 
 ```
-Add a new person to data/people.yaml following this schema:
+Run the full test suite for BirthdayReminders:
+  python -m pytest tests/ -v
 
-- name: "Full Name"
-  relationship: "<see router/message_router.py CLOSE_RELATIONSHIPS for close types>"
-  birthday: "YYYY-MM-DD"     # use --MM-DD if year unknown
-  anniversary: null           # or "YYYY-MM-DD"
-  notes: "<hobbies, life events, shared memories — more = better AI messages>"
-  phone: null                 # "+1XXXXXXXXXX" if available
-  groups: []                  # WhatsApp group IDs for Phase 2
+Expected: 43 tests, all passing.
 
-After adding, run: python scripts/list_upcoming.py
-to verify the person appears correctly.
-```
+Test coverage:
+  tests/test_calendar.py  → parse_date, days_until, age_str, find_upcoming (20 tests)
+  tests/test_router.py    → message_type, tone, label, route() (15 tests)
+  tests/test_prompts.py   → template selection, formatting, generate_message (8 tests)
 
----
+If any test fails:
+1. Read the failure message carefully
+2. Check if the code changed or the test is wrong
+3. Fix the code (not the test) unless the test has a genuine bug
+4. Re-run until all 43 pass
 
-## `/ripple-phase2`
-**When to use:** Starting Phase 2 development.
-
-```
-Phase 2 adds: milestone occasions, registry links, gift pools, freemium paywall.
-Read docs/PRD.md sections P2.1 through P2.6 before starting.
-
-Phase 2 setup steps:
-1. Enable feature flags in core/config.py:
-   FEATURE_MILESTONES = True
-   FEATURE_REGISTRY   = True
-   FEATURE_GIFTING    = True  (only after Stripe is configured)
-
-2. New dependencies to add to requirements.txt:
-   stripe>=7.0.0
-   resend>=0.6.0
-
-3. New GitHub Secrets needed:
-   STRIPE_SECRET_KEY
-   STRIPE_WEBHOOK_SECRET
-   RESEND_API_KEY
-
-4. Database migrations needed before coding:
-   - occasions table (extended types)
-   - registry table
-   - gift_pools table
-   - contributions table
-
-Build order: occasions → registry → gifting → billing → notifications
-Never build gifting before registry (registry is the simpler proof of concept).
+OpenAI is mocked in tests — no API calls, no cost.
 ```
 
 ---
 
-## `/ripple-yc-pitch`
-**When to use:** Preparing for investor conversations.
+## `/br-status`
+**Quick health check of the system.**
 
 ```
-Ripple — one-line pitch:
-"We're turning 'HBD!' into a moment — AI writes the perfect message,
-friends contribute wishes, and milestones include coordinated gifting."
+Report the current status of BirthdayReminders:
 
-Problem: 4 billion birthdays/year. Best most people get is a generic text.
-Solution: Solo mode (AI reminder + personalised message) + Group mode (collective wish, coordinated gift)
-Market: $200B milestone gifting market. $50B greeting card market. Both broken.
-Traction: [fill in current numbers]
-Business model: Freemium ($6.99/mo Pro) + 2.5% gift pool fee
-Team: [fill in]
+1. git log --oneline -5  → recent changes
+2. python scripts/list_upcoming.py 30  → upcoming events
+3. python -m pytest tests/ -q  → test status
+4. cat config.yaml  → reminder windows and settings
+5. Count people in data/people.yaml
 
-Key differentiators:
-1. Message quality — sounds like you, not a bot
-2. Group coordination — replaces WhatsApp chaos
-3. Modular — gifting only on milestones, never forced
-4. Moat — relationship data + message history gets smarter over time
-
-Comparable companies:
-- Hallmark (offline, no AI, no coordination)
-- Kudoboard (work only, no personal, no gifting)
-- Zola (weddings only, no AI message)
-Ripple is the first to combine AI message + group coordination + milestone gifting.
+Report as a brief summary table:
+  Contacts: X people
+  Upcoming (30 days): X events
+  Tests: X/43 passing
+  Schedule: 7AM PST daily
+  Last change: <commit message>
 ```
 
 ---
 
-## `/ripple-status`
-**When to use:** Quick status check at start of session.
+## `/br-upgrade-twilio`
+**Steps to move from Twilio sandbox to production.**
 
 ```
-Report the current status of Ripple:
+To send WhatsApp messages to anyone (no sandbox join required):
 
-1. Check git log --oneline -10 for recent changes
-2. Check .github/workflows/daily_reminder.yml for current schedule
-3. Check data/people.yaml for number of contacts
-4. Check config.yaml for current reminder_days
-5. Check if any TODO comments exist in tools/, prompts/, router/, modules/
-6. Report what Phase 1 items from docs/PRD.md are complete vs pending
+1. Upgrade Twilio account (add billing at console.twilio.com)
+2. Buy a WhatsApp-enabled phone number (~$1.15/month)
+3. Enable WhatsApp: Messaging → Senders → WhatsApp Senders → Add
+4. Create a message template (required by Meta for outbound messages):
+   - Go to: Messaging → Content Editor → Create new
+   - Type: WhatsApp, Category: Utility
+   - Example: "Hey! Just a reminder — {{1}}'s {{2}} is {{3}}. Here's a message: {{4}}"
+5. Wait for Meta approval (~24 hours)
+6. Update TWILIO_FROM secret to the new production number
+7. Update tools/whatsapp.py to use template SID instead of free-form text
 
-Format as a brief status table.
+Note: sandbox is fine for personal use (owner only). Only upgrade if sending to others.
 ```
