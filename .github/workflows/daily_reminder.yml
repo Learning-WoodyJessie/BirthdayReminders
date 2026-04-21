@@ -5,6 +5,9 @@ on:
     - cron: "0 8 * * *"   # 8:00 AM UTC daily — adjust to your timezone
   workflow_dispatch:       # allow manual run from GitHub Actions UI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   remind:
     runs-on: ubuntu-latest
