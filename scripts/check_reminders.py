@@ -9,8 +9,10 @@ Load resources → find events → route → generate → store in Supabase
 import os
 import sys
 import yaml
+from datetime import datetime
 from datetime import date
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # ── project imports ───────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,7 +35,7 @@ def load_yaml(path: Path) -> dict:
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    today  = date.today()
+    today  = datetime.now(ZoneInfo("America/Los_Angeles")).date()
     config = load_yaml(ROOT / "config.yaml")
     data   = load_yaml(ROOT / "data" / "people.yaml")
 
