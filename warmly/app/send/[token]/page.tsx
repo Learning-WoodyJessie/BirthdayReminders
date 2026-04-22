@@ -91,7 +91,8 @@ export default function SendPage({ params }: { params: { token: string } }) {
     }
     try {
       const stream   = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mimeType = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']
+      // Prefer WhatsApp-compatible formats: ogg (Chrome/Firefox) → mp4 (Safari) → webm fallback
+      const mimeType = ['audio/ogg;codecs=opus','audio/mp4','audio/webm;codecs=opus','audio/webm']
         .find(t => MediaRecorder.isTypeSupported(t)) ?? ''
       const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
       chunksRef.current = []

@@ -50,8 +50,10 @@ export async function POST(req: NextRequest) {
     // ── 2. Upload audio to Supabase Storage ───────────────────────────────
     const arrayBuffer = await audioFile.arrayBuffer()
     const buffer      = Buffer.from(arrayBuffer)
-    const ext         = audioFile.type.includes('mp4') ? 'mp4' : 'webm'
+    const type        = audioFile.type || 'audio/ogg'
+    const ext         = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm'
     const filename    = `voice-${token}-${Date.now()}.${ext}`
+    console.log(`[send-voice] type=${type} ext=${ext} size=${buffer.length}`)
 
     const { error: uploadError } = await supabase.storage
       .from('voice-notes')
@@ -115,9 +117,14 @@ export async function POST(req: NextRequest) {
       body: twilioBody.toString(),
     })
 
+    const twilioJson = await twilioRes.json()
+    console.log(`[send-voice] Twilio audio response: ${JSON.stringify(twilioJson)}`)
+
     if (!twilioRes.ok) {
-      const err = await twilioRes.text()
-      return NextResponse.json({ error: `Twilio error: ${err}` }, { status: 500 })
+      return NextResponse.json(
+        { error: `Twilio error: ${twilioJson.message ?? JSON.stringify(twilioJson)}` },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ ok: true, audio_url: audioUrl })
