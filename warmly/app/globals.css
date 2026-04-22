@@ -2,9 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
 body {
-  background-color: #FFF8F0;
+  background-color: #0A0A18;
   font-family: 'Inter', system-ui, sans-serif;
+  color: #ffffff;
 }
+
+/* Glass card */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.glass-warm {
+  background: rgba(255, 107, 53, 0.08);
+  border: 1px solid rgba(255, 107, 53, 0.2);
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #FF6B35 0%, #FF4D8D 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Orange glow button */
+.btn-primary {
+  background: linear-gradient(135deg, #FF6B35 0%, #FF4D8D 100%);
+  box-shadow: 0 4px 20px rgba(255, 107, 53, 0.4);
+  transition: all 0.2s ease;
+}
+.btn-primary:hover {
+  box-shadow: 0 6px 28px rgba(255, 107, 53, 0.6);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* Secondary button */
+.btn-secondary {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  background: rgba(255,255,255,0.12);
+}
+
+/* Textarea */
+.msg-textarea {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  color: #fff;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.msg-textarea:focus {
+  border-color: rgba(255, 107, 53, 0.5);
+}
+.msg-textarea::placeholder {
+  color: rgba(255,255,255,0.3);
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+/* Recording ring animation */
+@keyframes ring-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.recording-ring {
+  animation: ring-pulse 1.2s ease-out infinite;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
