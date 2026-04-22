@@ -39,6 +39,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
   const [voiceSent, setVoiceSent]       = useState(false)
   const [voiceSendErr, setVoiceSendErr] = useState('')
   const [debugAudioUrl, setDebugUrl]    = useState('')
+  const [debugSid, setDebugSid]         = useState('')
   const [error, setError]               = useState('')
   const mediaRef                        = useRef<MediaRecorder | null>(null)
   const chunksRef                       = useRef<Blob[]>([])
@@ -111,6 +112,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
     if (!voiceNote) return
     setSendingVoice(true); setVoiceSendErr('')
     try {
+      // Upload audio, get a public URL
       const form = new FormData()
       const ext  = voiceNote.type.includes('mp4') ? 'mp4' : 'webm'
       form.append('audio', voiceNote, `voice.${ext}`)
@@ -118,12 +120,21 @@ export default function SendPage({ params }: { params: { token: string } }) {
       form.append('to_self', toSelf ? 'true' : 'false')
       const res  = await fetch('/api/send-voice', { method: 'POST', body: form })
       const json = await res.json()
-      if (res.ok) {
-        setVoiceSent(true)
-        if (json.audio_url) setDebugUrl(json.audio_url)
-      } else {
-        setVoiceSendErr(json.error ?? 'Failed to send.')
-      }
+
+      if (!res.ok) { setVoiceSendErr(json.error ?? 'Upload failed.'); return }
+
+      // WhatsApp sandbox doesn't support native audio — open WhatsApp with the link instead
+      const audioUrl = json.audio_url ?? ''
+      const phone    = toSelf
+        ? data?.phone?.replace(/\D/g, '') ?? ''   // fallback: use recipient
+        : data?.phone?.replace(/\D/g, '') ?? ''
+      const text = `🎤 Voice note for you — tap to listen:\n${audioUrl}`
+      const waUrl = phone
+        ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+        : `https://wa.me/?text=${encodeURIComponent(text)}`
+      window.open(waUrl, '_blank')
+      setVoiceSent(true)
+      if (audioUrl) setDebugUrl(audioUrl)
     } catch (e: unknown) {
       setVoiceSendErr(e instanceof Error ? e.message : 'Failed to send.')
     } finally { setSendingVoice(false) }
@@ -305,23 +316,16 @@ export default function SendPage({ params }: { params: { token: string } }) {
                     >✕</button>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => sendVoiceNote(false)}
-                      disabled={sendingVoice}
-                      className="flex-1 py-3 rounded-xl btn-primary text-white text-sm font-bold disabled:opacity-50"
-                    >
-                      {sendingVoice ? '⏳ Sending…' : `Send to ${data?.person_name} 🎤`}
-                    </button>
-                    <button
-                      onClick={() => sendVoiceNote(true)}
-                      disabled={sendingVoice}
-                      className="flex-1 py-3 rounded-xl btn-secondary text-white/60 text-sm font-semibold
-                                 hover:text-white disabled:opacity-50"
-                    >
-                      Send to me first
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => sendVoiceNote(false)}
+                    disabled={sendingVoice}
+                    className="w-full py-3 rounded-xl btn-primary text-white text-sm font-bold disabled:opacity-50"
+                  >
+                    {sendingVoice ? '⏳ Uploading…' : `Send voice note on WhatsApp 🎤`}
+                  </button>
+                  <p className="text-white/25 text-xs text-center mt-1.5">
+                    Opens WhatsApp with a tap-to-play link
+                  </p>
                   {voiceSendErr && <p className="text-xs text-red-400 text-center mt-2">{voiceSendErr}</p>}
                 </>
               )}
@@ -329,21 +333,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
           ) : (
             <div className="py-3">
               <p className="text-green-400 font-bold text-center">✓ Sent to Twilio!</p>
-              {debugAudioUrl && (
-                <div className="mt-3 bg-black/20 rounded-xl p-3 border border-white/5">
-                  <p className="text-white/40 text-xs mb-1">
-                    🔍 Tap the link below — if audio plays, the file is good and the issue is Twilio delivery:
-                  </p>
-                  <a
-                    href={debugAudioUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-orange-400 text-xs break-all underline"
-                  >
-                    {debugAudioUrl}
-                  </a>
-                </div>
-              )}
+              <p className="text-white/30 text-xs text-center mt-1">WhatsApp is opening with your voice note link.</p>
             </div>
           )}
         </div>

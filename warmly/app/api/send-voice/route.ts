@@ -83,11 +83,10 @@ export async function POST(req: NextRequest) {
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
     const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64')
 
-    // Send only the voice note (no text)
+    // Send only the voice note — no body text (body can suppress media in WhatsApp sandbox)
     const twilioBody = new URLSearchParams({
       From:     fromNumber,
       To:       toNumber,
-      Body:     '🎤 Voice note',
       MediaUrl: audioUrl,
     })
 
@@ -101,7 +100,7 @@ export async function POST(req: NextRequest) {
     })
 
     const twilioJson = await twilioRes.json()
-    console.log(`[send-voice] Twilio audio response: ${JSON.stringify(twilioJson)}`)
+    console.log(`[send-voice] Twilio response: ${JSON.stringify(twilioJson)}`)
 
     if (!twilioRes.ok) {
       return NextResponse.json(
@@ -110,7 +109,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ ok: true, audio_url: audioUrl })
+    // Return SID so user can look up delivery status in Twilio Console
+    return NextResponse.json({
+      ok:        true,
+      audio_url: audioUrl,
+      sid:       twilioJson.sid,
+      status:    twilioJson.status,
+    })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: msg }, { status: 500 })
