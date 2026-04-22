@@ -28,6 +28,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
   const [data, setData]                 = useState<ReminderData | null>(null)
   const [message, setMessage]           = useState('')
   const [context, setContext]           = useState('')   // user's own thoughts
+  const [toneUsed, setToneUsed]         = useState('')   // last tone applied
   const [loading, setLoading]           = useState(true)
   const [regenerating, setRegen]        = useState(false)
   const [recording, setRecording]       = useState(false)
@@ -68,7 +69,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
         }),
       })
       const json = await res.json()
-      if (json.message) setMessage(json.message)
+      if (json.message) { setMessage(json.message); setToneUsed(tone) }
     } finally { setRegen(false) }
   }
 
@@ -138,6 +139,18 @@ export default function SendPage({ params }: { params: { token: string } }) {
       : `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(url, '_blank')
     setSent(true)
+
+    // Write-back in background — closes the feedback loop
+    fetch('/api/mark-sent', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        token:         params.token,
+        message_sent:  message,
+        context_added: context,
+        tone_selected: toneUsed,
+      }),
+    }).catch(e => console.error('[mark-sent]', e))
   }
 
   // ── States ────────────────────────────────────────────────────────────────

@@ -127,7 +127,7 @@ Environment secrets are NOT picked up by GitHub Actions unless `environment:` is
 ```bash
 python -m pytest tests/ -v
 ```
-All 43 tests must pass before any commit. Tests do NOT call OpenAI (mocked).
+All 84 tests must pass before any commit. Tests do NOT call OpenAI (mocked).
 
 ## Running locally
 ```bash
@@ -156,7 +156,24 @@ python scripts/list_upcoming.py 90     # next 90 days
 - **Design**: Dark theme (#0A0A18), orange→pink gradient (`btn-primary`), glass cards
 
 ### Supabase setup required
-1. Table: `reminders` with columns: token, person_name, relationship, occasion, notes, message, phone, created_at
+1. Table: `reminders` with columns:
+   ```
+   token, person_name, relationship, occasion, notes, message, phone, created_at
+   whatsapp_sent boolean default false
+   sent_at       timestamptz
+   message_sent  text
+   context_added text
+   tone_selected text
+   ```
+   Run this to add the feedback-loop columns to an existing table:
+   ```sql
+   ALTER TABLE reminders
+     ADD COLUMN IF NOT EXISTS whatsapp_sent  boolean default false,
+     ADD COLUMN IF NOT EXISTS sent_at        timestamptz,
+     ADD COLUMN IF NOT EXISTS message_sent   text,
+     ADD COLUMN IF NOT EXISTS context_added  text,
+     ADD COLUMN IF NOT EXISTS tone_selected  text;
+   ```
 2. RLS policy — public read on reminders:
    ```sql
    CREATE POLICY "Public read reminders" ON reminders FOR SELECT USING (true);

@@ -1,22 +1,27 @@
 """
 tests/test_memory.py
 
-Tests for tools/memory.py — sent log loading and duplicate detection.
-No disk I/O is performed (sent_log is passed directly to already_sent_this_year).
+Tests for tools/memory.py — sent log loading, duplicate detection,
+append_sent_log writer, and run log writer.
+
+No actual Supabase or disk side-effects: tests use monkeypatch + tmp_path.
 """
 
 import pytest
+import yaml
 from datetime import date
 from tools.memory import already_sent_this_year, load_sent_log
 
 
 CURRENT_YEAR = date.today().year
-LAST_YEAR = CURRENT_YEAR - 1
+LAST_YEAR    = CURRENT_YEAR - 1
 
 
 def _entry(person_name, occasion, year):
     return {"person_name": person_name, "occasion": occasion, "year": year}
 
+
+# ── already_sent_this_year ────────────────────────────────────────────────────
 
 class TestAlreadySentThisYear:
     def test_returns_false_for_empty_log(self):
@@ -56,14 +61,13 @@ class TestAlreadySentThisYear:
         assert already_sent_this_year("Alice", "birthday", sent_log=log) is False
 
 
+# ── load_sent_log ─────────────────────────────────────────────────────────────
+
 class TestLoadSentLog:
     def test_returns_list(self, tmp_path):
         """load_sent_log returns a list even for an empty file."""
-        import yaml
         log_file = tmp_path / "sent_log.yaml"
         log_file.write_text("[]\n")
-        # We can't easily override SENT_LOG_PATH, so just test the function
-        # directly by confirming a real file with [] gives us a list.
         with open(log_file) as f:
             data = yaml.safe_load(f)
         assert isinstance(data if isinstance(data, list) else [], list)
@@ -74,3 +78,107 @@ class TestLoadSentLog:
         monkeypatch.setattr(mem, "SENT_LOG_PATH", tmp_path / "nonexistent.yaml")
         result = mem.load_sent_log()
         assert result == []
+
+
+# ── append_sent_log ───────────────────────────────────────────────────────────
+
+class TestAppendSentLog:
+    def test_appends_new_entry(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "SENT_LOG_PATH", tmp_path / "sent_log.yaml")
+        mem.append_sent_log("Alice", "birthday", year=CURRENT_YEAR)
+        log = mem.load_sent_log()
+        assert len(log) == 1
+        assert log[0]["person_name"] == "Alice"
+        assert log[0]["occasion"] == "birthday"
+        assert log[0]["year"] == CURRENT_YEAR
+
+    def test_idempotent_on_duplicate(self, tmp_path, monkeypatch):
+        """Appending the same entry twice should not create a duplicate."""
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "SENT_LOG_PATH", tmp_path / "sent_log.yaml")
+        mem.append_sent_log("Alice", "birthday", year=CURRENT_YEAR)
+        mem.append_sent_log("Alice", "birthday", year=CURRENT_YEAR)
+        assert len(mem.load_sent_log()) == 1
+
+    def test_different_year_creates_new_entry(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "SENT_LOG_PATH", tmp_path / "sent_log.yaml")
+        mem.append_sent_log("Alice", "birthday", year=LAST_YEAR)
+        mem.append_sent_log("Alice", "birthday", year=CURRENT_YEAR)
+        assert len(mem.load_sent_log()) == 2
+
+    def test_optional_fields_stored(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "SENT_LOG_PATH", tmp_path / "sent_log.yaml")
+        mem.append_sent_log(
+            "Bob", "anniversary",
+            year=CURRENT_YEAR,
+            sent_at="2026-04-21T09:00:00",
+            context_added="We met in Paris",
+            tone_selected="warmer and more heartfelt",
+        )
+        entry = mem.load_sent_log()[0]
+        assert entry["sent_at"] == "2026-04-21T09:00:00"
+        assert entry["context_added"] == "We met in Paris"
+        assert entry["tone_selected"] == "warmer and more heartfelt"
+
+    def test_creates_file_if_missing(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        path = tmp_path / "subdir" / "sent_log.yaml"
+        monkeypatch.setattr(mem, "SENT_LOG_PATH", path)
+        mem.append_sent_log("Carol", "birthday", year=CURRENT_YEAR)
+        assert path.exists()
+
+    def test_empty_optional_fields_not_stored(self, tmp_path, monkeypatch):
+        """None/empty optional fields should not pollute the entry."""
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "SENT_LOG_PATH", tmp_path / "sent_log.yaml")
+        mem.append_sent_log("Dave", "birthday", year=CURRENT_YEAR)
+        entry = mem.load_sent_log()[0]
+        assert "sent_at" not in entry
+        assert "context_added" not in entry
+        assert "tone_selected" not in entry
+
+
+# ── append_run_log ────────────────────────────────────────────────────────────
+
+class TestAppendRunLog:
+    def test_creates_run_log_on_first_call(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "RUN_LOG_PATH", tmp_path / "run_log.yaml")
+        mem.append_run_log({"run_date": "2026-04-21", "events_sent": 2})
+        assert (tmp_path / "run_log.yaml").exists()
+
+    def test_appends_multiple_entries(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "RUN_LOG_PATH", tmp_path / "run_log.yaml")
+        mem.append_run_log({"run_date": "2026-04-20", "events_sent": 1})
+        mem.append_run_log({"run_date": "2026-04-21", "events_sent": 0})
+        with open(tmp_path / "run_log.yaml") as f:
+            log = yaml.safe_load(f)
+        assert len(log) == 2
+
+    def test_logged_at_is_added(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "RUN_LOG_PATH", tmp_path / "run_log.yaml")
+        mem.append_run_log({"run_date": "2026-04-21"})
+        with open(tmp_path / "run_log.yaml") as f:
+            log = yaml.safe_load(f)
+        assert "logged_at" in log[0]
+
+    def test_arbitrary_fields_preserved(self, tmp_path, monkeypatch):
+        import tools.memory as mem
+        monkeypatch.setattr(mem, "RUN_LOG_PATH", tmp_path / "run_log.yaml")
+        mem.append_run_log({
+            "run_date":             "2026-04-21",
+            "events_found":         3,
+            "events_skipped":       1,
+            "events_sent":          2,
+            "synced_from_supabase": 1,
+            "digest_sent":          True,
+        })
+        with open(tmp_path / "run_log.yaml") as f:
+            entry = yaml.safe_load(f)[0]
+        assert entry["events_found"] == 3
+        assert entry["digest_sent"] is True
