@@ -16,6 +16,12 @@ But some situations require judgment:
 This agent reads the person's notes, asks the LLM whether anything special
 is happening, and returns an optional adjustment instruction.
 
+Prompt engineering techniques applied:
+  - System/user split: system defines the agent's role; user carries the specific case
+  - Chain-of-thought: model reasons step-by-step before committing to a structured answer
+  - Temperature: 0.2 — deterministic, structured output (not creative generation)
+  - Few-shot: one example showing the reasoning + output format
+
 Design principles:
   1. Only fires when the person has substantial notes (>50 chars).
      No notes → no LLM call → no latency cost.
@@ -29,34 +35,77 @@ Design principles:
 from typing import Optional
 from prompts.llm import LLMProvider
 
-PLANNING_PROMPT = """You are a thoughtful personal assistant helping someone send birthday and anniversary messages.
 
-You have the following information about the recipient:
+# ── System prompt — defines the agent's role ──────────────────────────────────
 
+PLANNING_SYSTEM = """\
+You are a careful, empathetic personal assistant reviewing notes about someone before \
+a birthday or anniversary message is sent to them.
+
+Your only job is to flag situations where the standard warm message would be \
+inappropriate, hurtful, or poorly timed — and to suggest a specific adjustment \
+when needed.
+
+You are conservative: if in doubt, proceed normally. The standard approach is \
+usually right. Only flag something if the notes genuinely indicate it.\
+"""
+
+
+# ── Planning prompt — chain-of-thought before structured output ───────────────
+
+PLANNING_PROMPT = """\
+Review the following information about a message recipient before we send them \
+a birthday or anniversary message.
+
+[RECIPIENT]
 Name:         {name}
 Relationship: {relationship}
 Occasion:     {occasion}
 Notes:        {notes}
 
-Your job: decide if anything in the notes suggests the standard warm message needs adjustment.
+[CHAIN OF THOUGHT — reason through this before answering]
+Step 1 — Scan for difficulty signals:
+  Does the notes mention loss, illness, grief, divorce, job loss, estrangement,
+  major conflict, or any situation where a celebratory message would land badly?
 
-Look for signals like:
-- Life difficulties (loss, illness, divorce, job loss, grief)
-- Recent positive milestones to celebrate (promotion, new baby, new home)
-- Relationship tension or estrangement mentioned
-- Cultural or religious context that affects tone
+Step 2 — Scan for positive signals:
+  Is there a recent milestone or achievement worth acknowledging alongside the occasion?
 
-Respond in this EXACT format (no other text):
+Step 3 — Assess the occasion fit:
+  Does the occasion type (birthday vs. anniversary) interact with anything in the notes?
+  (e.g. an anniversary message when notes mention a breakup would be actively harmful)
+
+Step 4 — Make the call:
+  - Normal: notes don't indicate anything unusual — send standard message
+  - Sensitive: something warrants a careful tone adjustment — send but with instruction
+  - Skip: notes indicate active grief, estrangement, or the message would cause harm
+
+[EXAMPLE]
+Notes: "We had a falling out last year over money. Haven't spoken in 8 months."
+Reasoning:
+  Step 1: Active estrangement — unresolved conflict mentioned explicitly
+  Step 2: No positive signals
+  Step 3: Birthday message to someone you're estranged from could reopen tension
+  Step 4: Skip — message would likely feel unwelcome given the active estrangement
+Output:
+NEEDS_ADJUSTMENT: yes
+REASON: Active estrangement — unresolved falling out, no contact for 8 months
+INSTRUCTION: none
+URGENCY: skip
+
+[YOUR TURN]
+Work through the steps above for the recipient described, then respond in this \
+EXACT format (no other text before or after):
+
 NEEDS_ADJUSTMENT: yes|no
-REASON: one sentence explanation (or "none" if no adjustment needed)
+REASON: one sentence (or "none" if no adjustment needed)
 INSTRUCTION: specific tone or content instruction for the message writer (or "none")
 URGENCY: normal|sensitive|skip
 
 Rules:
-- URGENCY=sensitive: send but adjust tone carefully
-- URGENCY=skip: this occasion should be skipped (major estrangement or active grief)
-- Only say yes to NEEDS_ADJUSTMENT if the notes genuinely indicate something unusual
-- When in doubt, return no — the standard approach is usually right
+- URGENCY=sensitive: send but adjust tone carefully per INSTRUCTION
+- URGENCY=skip: do not send — occasion would cause harm or is unwelcome
+- Only flag NEEDS_ADJUSTMENT=yes if something genuine is present — when in doubt, say no\
 """
 
 
@@ -79,9 +128,9 @@ def check_for_special_circumstances(
     Returns:
         {
           "needs_adjustment": bool,
-          "reason":           str,         # e.g. "going through divorce"
-          "instruction":      str | None,  # e.g. "avoid romantic references"
-          "urgency":          str,         # "normal" | "sensitive" | "skip"
+          "reason":           str,
+          "instruction":      str | None,
+          "urgency":          str,  # "normal" | "sensitive" | "skip"
         }
     """
     notes = (person.get("notes") or "").strip()
@@ -98,7 +147,8 @@ def check_for_special_circumstances(
     )
 
     try:
-        raw = provider.generate(prompt).strip()
+        # Low temperature — we want deterministic structured output, not creativity
+        raw = provider.generate(prompt, system=PLANNING_SYSTEM, temperature=0.2).strip()
         return _parse_response(raw)
     except Exception as e:
         print(f"  [planning_agent] check failed for {person['name']}: {e}")
@@ -126,10 +176,10 @@ def _parse_response(raw: str) -> dict:
         for k, v in [line.split(":", 1)]
     }
 
-    needs = lines.get("NEEDS_ADJUSTMENT", "no").lower() == "yes"
-    reason      = lines.get("REASON",      "none")
-    instruction = lines.get("INSTRUCTION", "none")
-    urgency     = lines.get("URGENCY",     "normal").lower()
+    needs       = lines.get("NEEDS_ADJUSTMENT", "no").lower() == "yes"
+    reason      = lines.get("REASON",           "none")
+    instruction = lines.get("INSTRUCTION",      "none")
+    urgency     = lines.get("URGENCY",          "normal").lower()
 
     if urgency not in ("normal", "sensitive", "skip"):
         urgency = "normal"

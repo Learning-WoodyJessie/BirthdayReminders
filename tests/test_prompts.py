@@ -42,6 +42,7 @@ class TestTemplateFormatting:
         }
 
     def test_reminder_contains_person_name(self):
+        from prompts.messages import REMINDER_EXAMPLES
         person = self._person("loves hiking")
         t = get_template("reminder")
         filled = t.format(
@@ -52,6 +53,7 @@ class TestTemplateFormatting:
             notes=person["notes"],
             tone="warm and personal",
             preferences_section="",
+            examples=REMINDER_EXAMPLES,
         )
         assert "Sush" in filled
         assert "3" in filled
@@ -59,6 +61,7 @@ class TestTemplateFormatting:
         assert "loves hiking" in filled
 
     def test_wish_contains_today_context(self):
+        from prompts.messages import WISH_EXAMPLES
         person = self._person()
         t = get_template("wish")
         filled = t.format(
@@ -69,6 +72,7 @@ class TestTemplateFormatting:
             notes="none provided",
             tone="warm and personal",
             preferences_section="",
+            examples=WISH_EXAMPLES,
         )
         assert "TODAY" in filled
         assert "Sush" in filled
@@ -133,8 +137,9 @@ class TestGenerateMessage:
         )
 
         assert "Sush" in result
-        # Verify prompt contained reminder context
+        # Verify user message (messages[1]) contained reminder context
+        # messages[0] is the system prompt, messages[1] is the user prompt
         call_kwargs = mock_client.chat.completions.create.call_args
-        prompt_content = call_kwargs.kwargs["messages"][0]["content"]
-        assert "3" in prompt_content
-        assert "reminder" in prompt_content.lower() or "days" in prompt_content.lower()
+        user_content = call_kwargs.kwargs["messages"][1]["content"]
+        assert "3" in user_content
+        assert "reminder" in user_content.lower() or "days" in user_content.lower()
