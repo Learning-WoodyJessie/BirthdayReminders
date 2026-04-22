@@ -215,6 +215,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
       const ext  = voiceNote.type.includes('mp4') ? 'mp4' : 'webm'
       form.append('audio', voiceNote, `voice.${ext}`)
       form.append('token', params.token)
+      form.append('message', message)
       form.append('to_self', toSelf ? 'true' : 'false')
 
       const res  = await fetch('/api/send-voice', { method: 'POST', body: form })
@@ -290,244 +291,234 @@ export default function SendPage({ params }: { params: { token: string } }) {
         <p className="text-gray-400 text-sm capitalize">{data?.relationship}</p>
       </div>
 
-      {/* Message editor */}
-      <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-            Your message
-          </label>
-          <button
-            onClick={copyMessage}
-            className="text-xs text-warmly-orange font-medium hover:underline"
-          >
-            {copied ? '✓ Copied!' : 'Copy'}
-          </button>
+      {/* ── PATH A: Text message ───────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow-sm p-4 mb-2">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">💬</span>
+          <span className="text-sm font-bold text-warmly-dark">Send a text message</span>
         </div>
-        <textarea
-          className="w-full text-gray-800 text-base leading-relaxed resize-none focus:outline-none min-h-[140px]"
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-        />
-        <p className="text-xs text-gray-300 text-right mt-1">{message.length} chars</p>
-        {regenerating && (
-          <p className="text-xs text-warmly-orange mt-2 animate-pulse">
-            Rewriting...
+
+        {/* Message editor */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs text-gray-400">Edit your message below</span>
+            <button
+              onClick={copyMessage}
+              className="text-xs text-warmly-orange font-medium hover:underline"
+            >
+              {copied ? '✓ Copied!' : 'Copy'}
+            </button>
+          </div>
+          <textarea
+            className="w-full text-gray-800 text-base leading-relaxed resize-none focus:outline-none
+                       min-h-[120px] border border-gray-100 rounded-xl p-2"
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+          />
+          <p className="text-xs text-gray-300 text-right mt-0.5">{message.length} chars</p>
+          {regenerating && (
+            <p className="text-xs text-warmly-orange mt-1 animate-pulse">Rewriting…</p>
+          )}
+        </div>
+
+        {/* Tone buttons */}
+        <div className="mb-3">
+          <p className="text-xs text-gray-400 mb-1.5">Adjust tone</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TONES.map(t => (
+              <button
+                key={t.value}
+                onClick={() => regenerate(t.value)}
+                disabled={regenerating}
+                className="px-3 py-1 rounded-full bg-gray-50 text-xs font-medium text-warmly-dark
+                           hover:bg-warmly-orange hover:text-white transition-colors disabled:opacity-40"
+              >
+                {t.label}
+              </button>
+            ))}
+            <button
+              onClick={() => regenerate('completely different')}
+              disabled={regenerating}
+              className="px-3 py-1 rounded-full bg-gray-50 text-xs font-medium text-warmly-dark
+                         hover:bg-warmly-orange hover:text-white transition-colors disabled:opacity-40"
+            >
+              🔄 Regenerate
+            </button>
+          </div>
+        </div>
+
+        {/* Image picker toggle */}
+        <div className="mb-3">
+          <button
+            onClick={() => setShowPicker(!showImagePicker)}
+            className={clsx(
+              "w-full py-2 rounded-xl text-sm font-medium transition-colors",
+              selectedImage
+                ? "bg-warmly-orange text-white"
+                : "bg-gray-50 text-warmly-dark hover:bg-warmly-orange hover:text-white"
+            )}
+          >
+            🎞️ {selectedImage ? 'Image added — tap to change' : 'Add a fun image (optional)'}
+          </button>
+
+          {showImagePicker && (
+            <div className="mt-2">
+              <button
+                onClick={generateAIImage}
+                disabled={generatingAI}
+                className="w-full py-2.5 mb-2 rounded-xl bg-gradient-to-r from-warmly-orange to-pink-400
+                           text-white text-sm font-semibold disabled:opacity-60
+                           flex items-center justify-center gap-2"
+              >
+                {generatingAI ? (
+                  <><span className="animate-spin">⏳</span> Generating AI image…</>
+                ) : (
+                  <>✨ Generate AI image for {data?.person_name}</>
+                )}
+              </button>
+
+              {aiImageUrl && (
+                <div className="mb-2 relative rounded-xl overflow-hidden border-2 border-warmly-orange">
+                  <img src={aiImageUrl} alt="AI generated" className="w-full h-36 object-cover" />
+                  <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
+                    ✨ AI generated
+                  </div>
+                  <button
+                    onClick={() => { setImage(aiImageUrl); setShowPicker(false) }}
+                    className="absolute bottom-2 right-2 bg-warmly-orange text-white text-xs px-3 py-1 rounded-full"
+                  >
+                    Use this
+                  </button>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 mb-1.5 text-center">— or pick a GIF —</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {FALLBACK_GIFS.map(gif => (
+                  <button
+                    key={gif.url}
+                    onClick={() => { setImage(gif.url); setShowPicker(false) }}
+                    className={clsx(
+                      "rounded-xl overflow-hidden border-2 transition-all",
+                      selectedImage === gif.url ? "border-warmly-orange" : "border-transparent"
+                    )}
+                  >
+                    <img src={gif.url} alt={gif.label} className="w-full h-16 object-cover" />
+                  </button>
+                ))}
+                <button
+                  onClick={() => { setImage(null); setShowPicker(false) }}
+                  className="rounded-xl border-2 border-dashed border-gray-200
+                             flex items-center justify-center h-16 text-gray-400 text-xs"
+                >
+                  None
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selectedImage && !showImagePicker && (
+            <div className="mt-2 relative rounded-xl overflow-hidden">
+              <img src={selectedImage} alt="selected" className="w-full h-28 object-cover" />
+              <button
+                onClick={() => setImage(null)}
+                className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-6 h-6 text-xs"
+              >✕</button>
+            </div>
+          )}
+        </div>
+
+        {/* Send via WhatsApp */}
+        <button
+          onClick={sendOnWhatsApp}
+          className="w-full py-3.5 rounded-xl bg-warmly-orange text-white text-base
+                     font-bold shadow hover:bg-orange-500 active:scale-95 transition-all"
+        >
+          Open in WhatsApp 💬
+        </button>
+        {selectedImage && (
+          <p className="text-center text-xs text-gray-400 mt-1.5">
+            WhatsApp will open with your message. Attach the image manually in the app.
           </p>
         )}
       </div>
 
-      {/* Tone buttons */}
-      <div className="mb-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-          Adjust tone
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {TONES.map(t => (
-            <button
-              key={t.value}
-              onClick={() => regenerate(t.value)}
-              disabled={regenerating}
-              className="px-3 py-1.5 rounded-full bg-white shadow-sm text-sm font-medium
-                         text-warmly-dark hover:bg-warmly-orange hover:text-white
-                         transition-colors disabled:opacity-40"
-            >
-              {t.label}
-            </button>
-          ))}
-          <button
-            onClick={() => regenerate('completely different')}
-            disabled={regenerating}
-            className="px-3 py-1.5 rounded-full bg-white shadow-sm text-sm font-medium
-                       text-warmly-dark hover:bg-warmly-orange hover:text-white
-                       transition-colors disabled:opacity-40"
-          >
-            🔄 Regenerate
-          </button>
-        </div>
+      {/* Divider */}
+      <div className="flex items-center gap-3 my-4">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-xs text-gray-400 font-medium">OR</span>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
 
-      {/* Extras */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-          Add extras
-        </p>
-        <div className="flex gap-3">
-
-          {/* Image picker */}
-          <button
-            onClick={() => setShowPicker(!showImagePicker)}
-            className={clsx(
-              "flex-1 py-3 rounded-xl text-sm font-medium transition-colors shadow-sm",
-              selectedImage
-                ? "bg-warmly-orange text-white"
-                : "bg-white text-warmly-dark hover:bg-warmly-orange hover:text-white"
-            )}
-          >
-            🎞️ {selectedImage ? 'Image added' : 'Add image'}
-          </button>
-
-          {/* Voice note */}
-          <button
-            onClick={toggleRecording}
-            className={clsx(
-              "flex-1 py-3 rounded-xl text-sm font-medium transition-colors shadow-sm",
-              recording
-                ? "bg-red-500 text-white animate-pulse"
-                : voiceNote
-                ? "bg-warmly-orange text-white"
-                : "bg-white text-warmly-dark hover:bg-warmly-orange hover:text-white"
-            )}
-          >
-            🎤 {recording ? '⏹ Stop' : voiceNote ? 'Recorded ✓' : 'Voice note'}
-          </button>
-
+      {/* ── PATH B: Voice note ─────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl shadow-sm p-4 mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-base">🎤</span>
+          <span className="text-sm font-bold text-warmly-dark">Send a voice note</span>
         </div>
+        <p className="text-xs text-gray-400 mb-3">
+          Record a personal message — your voice note + the text will be sent via WhatsApp.
+        </p>
 
-        {/* Voice recording error */}
+        <button
+          onClick={toggleRecording}
+          className={clsx(
+            "w-full py-3 rounded-xl text-sm font-semibold transition-colors mb-2",
+            recording
+              ? "bg-red-500 text-white animate-pulse"
+              : voiceNote
+              ? "bg-warmly-orange text-white"
+              : "bg-gray-50 text-warmly-dark hover:bg-warmly-orange hover:text-white"
+          )}
+        >
+          {recording ? '⏹ Tap to stop recording' : voiceNote ? '🎤 Recorded ✓ — tap to re-record' : '🎤 Tap to record'}
+        </button>
+
         {voiceError && (
-          <p className="text-xs text-red-500 mt-2 text-center">{voiceError}</p>
+          <p className="text-xs text-red-500 text-center mb-2">{voiceError}</p>
         )}
 
-        {/* Image picker panel */}
-        {showImagePicker && (
-          <div className="mt-3">
-            {/* AI generate button */}
-            <button
-              onClick={generateAIImage}
-              disabled={generatingAI}
-              className="w-full py-3 mb-3 rounded-xl bg-gradient-to-r from-warmly-orange to-pink-400
-                         text-white text-sm font-semibold shadow-sm disabled:opacity-60
-                         flex items-center justify-center gap-2"
-            >
-              {generatingAI ? (
-                <>
-                  <span className="animate-spin">⏳</span>
-                  Generating AI image…
-                </>
-              ) : (
-                <>✨ Generate AI image for {data?.person_name}</>
-              )}
-            </button>
+        {voiceNote && (
+          <div>
+            <div className="flex items-center gap-2 mb-3 bg-gray-50 rounded-xl p-2">
+              <audio controls src={URL.createObjectURL(voiceNote)} className="flex-1 h-8" />
+              <button
+                onClick={() => { setVoice(null); setVoiceSent(false); setVoiceSendErr('') }}
+                className="text-gray-400 text-sm px-1"
+              >✕</button>
+            </div>
 
-            {/* Show AI image if generated */}
-            {aiImageUrl && (
-              <div className="mb-3 relative rounded-xl overflow-hidden shadow-sm border-2 border-warmly-orange">
-                <img src={aiImageUrl} alt="AI generated" className="w-full h-40 object-cover" />
-                <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full">
-                  ✨ AI generated
-                </div>
+            {voiceSent ? (
+              <p className="text-sm text-green-500 text-center font-semibold py-2">✓ Sent!</p>
+            ) : (
+              <div className="flex gap-2">
                 <button
-                  onClick={() => { setImage(aiImageUrl); setShowPicker(false) }}
-                  className="absolute bottom-2 right-2 bg-warmly-orange text-white text-xs px-3 py-1 rounded-full"
+                  onClick={() => sendVoiceNote(false)}
+                  disabled={sendingVoice}
+                  className="flex-1 py-3 rounded-xl bg-warmly-orange text-white text-sm font-semibold
+                             disabled:opacity-50"
                 >
-                  Use this
+                  {sendingVoice ? '⏳ Sending…' : `Send to ${data?.person_name} 🎤`}
+                </button>
+                <button
+                  onClick={() => sendVoiceNote(true)}
+                  disabled={sendingVoice}
+                  className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-700 text-sm font-semibold
+                             disabled:opacity-50"
+                >
+                  {sendingVoice ? '⏳…' : 'Send to me first'}
                 </button>
               </div>
             )}
 
-            <p className="text-xs text-gray-400 mb-2 text-center">— or pick a GIF —</p>
-
-            {/* GIF grid */}
-            <div className="grid grid-cols-3 gap-2">
-              {FALLBACK_GIFS.map(gif => (
-                <button
-                  key={gif.url}
-                  onClick={() => { setImage(gif.url); setShowPicker(false) }}
-                  className={clsx(
-                    "rounded-xl overflow-hidden border-2 transition-all",
-                    selectedImage === gif.url
-                      ? "border-warmly-orange scale-95"
-                      : "border-transparent"
-                  )}
-                >
-                  <img src={gif.url} alt={gif.label} className="w-full h-20 object-cover" />
-                </button>
-              ))}
-              <button
-                onClick={() => { setImage(null); setShowPicker(false) }}
-                className="rounded-xl border-2 border-dashed border-gray-200
-                           flex items-center justify-center h-20 text-gray-400 text-xs"
-              >
-                None
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Voice note playback + send options */}
-        {voiceNote && (
-          <div className="mt-3 bg-white rounded-xl p-3 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-xl">🎤</span>
-              <audio controls src={URL.createObjectURL(voiceNote)} className="flex-1 h-8" />
-              <button onClick={() => { setVoice(null); setVoiceSent(false); setVoiceSendErr('') }}
-                className="text-gray-400 text-sm">✕</button>
-            </div>
-
-            {voiceSent ? (
-              <p className="text-xs text-green-500 text-center font-medium">✓ Voice note sent!</p>
-            ) : (
-              <>
-                <p className="text-xs text-gray-500 text-center mb-2">
-                  WhatsApp links don&apos;t support audio. Send the voice note directly:
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => sendVoiceNote(false)}
-                    disabled={sendingVoice}
-                    className="flex-1 py-2 rounded-lg bg-warmly-orange text-white text-xs font-semibold
-                               disabled:opacity-50"
-                  >
-                    {sendingVoice ? '⏳ Sending…' : `Send to ${data?.person_name}`}
-                  </button>
-                  <button
-                    onClick={() => sendVoiceNote(true)}
-                    disabled={sendingVoice}
-                    className="flex-1 py-2 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold
-                               disabled:opacity-50"
-                  >
-                    Send to me first
-                  </button>
-                </div>
-                {voiceSendError && (
-                  <p className="text-xs text-red-500 text-center mt-1">{voiceSendError}</p>
-                )}
-              </>
+            {voiceSendError && (
+              <p className="text-xs text-red-500 text-center mt-2">{voiceSendError}</p>
             )}
-          </div>
-        )}
-
-        {/* Selected image preview */}
-        {selectedImage && !showImagePicker && (
-          <div className="mt-3 relative rounded-xl overflow-hidden shadow-sm">
-            <img src={selectedImage} alt="selected" className="w-full h-32 object-cover" />
-            <button
-              onClick={() => setImage(null)}
-              className="absolute top-2 right-2 bg-black/50 text-white rounded-full w-6 h-6 text-xs"
-            >
-              ✕
-            </button>
           </div>
         )}
       </div>
 
-      {/* Send button */}
-      <button
-        onClick={sendOnWhatsApp}
-        className="w-full py-4 rounded-2xl bg-warmly-orange text-white text-lg
-                   font-bold shadow-lg hover:bg-orange-500 active:scale-95
-                   transition-all"
-      >
-        Send on WhatsApp 💬
-      </button>
-
-      {selectedImage && (
-        <p className="text-center text-xs text-gray-400 mt-2">
-          💡 WhatsApp will open with your message. Share the image link or save &amp; attach it manually.
-        </p>
-      )}
-
-      <p className="text-center text-xs text-gray-400 mt-4">
+      <p className="text-center text-xs text-gray-400">
         Made with Warmly 🌻
       </p>
     </main>
