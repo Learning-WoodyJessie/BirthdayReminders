@@ -38,6 +38,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
   const [sendingVoice, setSendingVoice] = useState(false)
   const [voiceSent, setVoiceSent]       = useState(false)
   const [voiceSendErr, setVoiceSendErr] = useState('')
+  const [debugAudioUrl, setDebugUrl]    = useState('')
   const [error, setError]               = useState('')
   const mediaRef                        = useRef<MediaRecorder | null>(null)
   const chunksRef                       = useRef<Blob[]>([])
@@ -117,8 +118,12 @@ export default function SendPage({ params }: { params: { token: string } }) {
       form.append('to_self', toSelf ? 'true' : 'false')
       const res  = await fetch('/api/send-voice', { method: 'POST', body: form })
       const json = await res.json()
-      if (res.ok) setVoiceSent(true)
-      else setVoiceSendErr(json.error ?? 'Failed to send.')
+      if (res.ok) {
+        setVoiceSent(true)
+        if (json.audio_url) setDebugUrl(json.audio_url)
+      } else {
+        setVoiceSendErr(json.error ?? 'Failed to send.')
+      }
     } catch (e: unknown) {
       setVoiceSendErr(e instanceof Error ? e.message : 'Failed to send.')
     } finally { setSendingVoice(false) }
@@ -322,9 +327,23 @@ export default function SendPage({ params }: { params: { token: string } }) {
               )}
             </>
           ) : (
-            <div className="text-center py-3">
-              <p className="text-green-400 font-bold">✓ Voice note sent!</p>
-              <p className="text-white/30 text-xs mt-1">They&apos;ll hear from you on WhatsApp.</p>
+            <div className="py-3">
+              <p className="text-green-400 font-bold text-center">✓ Sent to Twilio!</p>
+              {debugAudioUrl && (
+                <div className="mt-3 bg-black/20 rounded-xl p-3 border border-white/5">
+                  <p className="text-white/40 text-xs mb-1">
+                    🔍 Tap the link below — if audio plays, the file is good and the issue is Twilio delivery:
+                  </p>
+                  <a
+                    href={debugAudioUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-orange-400 text-xs break-all underline"
+                  >
+                    {debugAudioUrl}
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>
