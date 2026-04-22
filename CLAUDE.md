@@ -17,16 +17,25 @@ tools/
   whatsapp.py         ← send_whatsapp (Twilio)
   warmly.py           ← create_warmly_link (Supabase insert + return edit URL)
   memory.py           ← load_sent_log, already_sent_this_year, append_sent_log,
-                         sync_sent_log_from_supabase, append_run_log
+                         sync_sent_log_from_supabase (pulls sent+skipped rows),
+                         append_run_log
+  preferences.py      ← get_person_preferences, get_overall_preferences,
+                         build_preferences_section (injects history into prompts)
+  health.py           ← days_since_last_sent, get_relationship_health,
+                         health_summary_text (never/overdue/ok/recent)
 
 prompts/
   messages.py         ← REMINDER_TEMPLATE, WISH_TEMPLATE, generate_message()
+                         (accepts preferences_section arg)
   llm.py              ← LLMProvider (ABC), OpenAIProvider, AnthropicProvider,
                          get_provider(config) factory
 
 router/
   message_router.py   ← route() — message_type, tone, label,
                          should_send, channel, urgency
+  planning_agent.py   ← check_for_special_circumstances() — LLM reads notes,
+                         returns needs_adjustment, reason, instruction, urgency
+                         (fast path if notes < 50 chars; graceful fallback on error)
 
 data/                 ← resource layer (source of truth)
   people.yaml         ← all contacts + dates
@@ -36,28 +45,36 @@ data/                 ← resource layer (source of truth)
 config.yaml           ← reminder_days, llm provider + model
 
 scripts/
-  check_reminders.py  ← thin orchestrator: sync → load → find → route → generate → store → send → log
+  check_reminders.py  ← thin orchestrator:
+                         sync → load → find → route → plan → generate → store → send → log
   add_person.py       ← interactive CLI to add contacts
   list_upcoming.py    ← preview upcoming events (no messages sent)
+  status.py           ← CLI dashboard: contacts, upcoming, sent log, run log,
+                         LLM config, relationship health (--full for table)
 
 tests/
-  test_calendar.py    ← 20 tests for calendar tools
-  test_router.py      ← 23 tests for router (incl. should_send, channel, urgency)
-  test_prompts.py     ← 8 tests for prompts (OpenAI mocked)
-  test_llm.py         ← 13 tests for LLM provider abstraction
-  test_memory.py      ← 20 tests for memory tools
+  test_calendar.py       ← 20 tests
+  test_router.py         ← 23 tests (incl. should_send, channel, urgency)
+  test_prompts.py        ← 8 tests (OpenAI mocked)
+  test_llm.py            ← 13 tests for LLM provider abstraction
+  test_memory.py         ← 20 tests for memory tools
+  test_preferences.py    ← 21 tests for preferences derivation
+  test_health.py         ← 16 tests for relationship health tracking
+  test_planning_agent.py ← 17 tests for planning agent (LLM mocked)
 
 warmly/               ← Next.js web app (deployed on Vercel)
   app/
-    send/[token]/page.tsx          ← main UI: edit message, tone, voice note, send
+    send/[token]/page.tsx          ← main UI: edit message, tone, voice note, send, skip
     api/regenerate/route.ts        ← POST: rewrite message with tone via GPT-4o
     api/mark-sent/route.ts         ← POST: write-back on send (feedback loop)
+    api/skip/route.ts              ← POST: marks reminder skipped (suppresses future)
     api/generate-image/route.ts    ← POST: generate celebration image via DALL-E 3
     api/send-voice/route.ts        ← POST: upload voice blob to Supabase Storage
     api/audio/[filename]/route.ts  ← GET: proxy audio files (publicly accessible)
 
 .github/workflows/
   daily_reminder.yml  ← cron: 7AM PST (15:00 UTC) daily
+                         + "Notify on failure" step → WhatsApp alert via Twilio
 ```
 
 ---
@@ -67,17 +84,22 @@ warmly/               ← Next.js web app (deployed on Vercel)
 ```
 GitHub Actions (7AM PST)
   → check_reminders.py
-      → sync_sent_log_from_supabase()   pulls whatsapp_sent=true rows → sent_log.yaml
+      → sync_sent_log_from_supabase()   pulls whatsapp_sent=true + skipped=true rows
       → load_sent_log()                 in-memory list for duplicate checks
       → get_provider(config)            OpenAI or Anthropic per config.yaml
       → find_upcoming()                 finds events in [3, 0] days
       → route()                         decides message_type, tone, should_send,
                                         channel, urgency
       → [skip if should_send=False]     already sent this year
-      → generate_message()              calls LLM provider
+      → check_for_special_circumstances() planning agent reads notes, returns
+                                        adjustment instruction or urgency=skip
+      → [skip if urgency=skip]          planning agent says don't send
+      → build_preferences_section()     inject past tone + context from sent_log
+      → generate_message()              calls LLM with preferences in prompt
       → create_warmly_link()            stores in Supabase, returns edit URL
       → send_whatsapp()                 Twilio digest to owner
       → append_run_log()                writes to data/run_log.yaml
+  → [on failure] Notify on failure      WhatsApp alert via Twilio
 
 Owner taps Warmly link → warmly/app/send/[token]/page.tsx
   → loads reminder from Supabase by token
@@ -90,9 +112,12 @@ Owner taps Warmly link → warmly/app/send/[token]/page.tsx
       → pre-generates filename          knows URL before upload
       → window.open(wa.me link)         opens WhatsApp synchronously (iOS safe)
       → POST /api/send-voice            uploads audio in background
+  → OR: "Skip this reminder"
+      → POST /api/skip                  marks skipped=true, skipped_at in Supabase
+      → shows confirmation screen       "Won't remind you again this year"
 
 Next run of check_reminders.py:
-  → sync_sent_log_from_supabase() picks up the whatsapp_sent=true row
+  → sync_sent_log_from_supabase() picks up whatsapp_sent=true AND skipped=true rows
   → router sees already_sent_this_year=True → skips duplicate
 ```
 
@@ -257,7 +282,7 @@ Environment secrets are NOT picked up by GitHub Actions unless `environment:` is
 ```bash
 python -m pytest tests/ -v
 ```
-All 84 tests must pass before any commit. Tests do NOT call OpenAI (mocked).
+All 138 tests must pass before any commit. Tests do NOT call OpenAI (mocked).
 
 ## Running locally
 ```bash
@@ -296,14 +321,16 @@ python scripts/list_upcoming.py 90     # next 90 days
    context_added text
    tone_selected text
    ```
-   Run this to add the feedback-loop columns to an existing table:
+   Run this to add all feature columns to an existing table:
    ```sql
    ALTER TABLE reminders
      ADD COLUMN IF NOT EXISTS whatsapp_sent  boolean default false,
      ADD COLUMN IF NOT EXISTS sent_at        timestamptz,
      ADD COLUMN IF NOT EXISTS message_sent   text,
      ADD COLUMN IF NOT EXISTS context_added  text,
-     ADD COLUMN IF NOT EXISTS tone_selected  text;
+     ADD COLUMN IF NOT EXISTS tone_selected  text,
+     ADD COLUMN IF NOT EXISTS skipped        boolean default false,
+     ADD COLUMN IF NOT EXISTS skipped_at     timestamptz;
    ```
 
 2. RLS policy — public read on reminders:
@@ -412,6 +439,14 @@ For this project: router stays rule-based. A planning agent would be appropriate
 - Write back on the user action (tap), not on page load or a timer
 - Use fire-and-forget (`fetch().catch()`) — never block the WhatsApp open on a write-back
 - Keep write-back idempotent — the sync function checks for duplicates before appending
+- Skipped = same as sent for deduplication — `sync_sent_log_from_supabase()` pulls both
+
+### Planning agent design
+- Only invoke when notes are substantial (>50 chars) — empty notes → fast return, no LLM cost
+- Use a tightly structured output format (`KEY: value` per line) so parsing is reliable
+- Always have a `_no_adjustment()` fallback — errors should degrade gracefully, not crash
+- Inject the instruction into `person["notes"]` so generate_message() sees it without needing a new param
+- The planning agent recommends; the orchestrator decides — `urgency=skip` is honoured in `check_reminders.py` but not enforced by the agent itself
 
 ### Building and deploying Warmly
 - Always build from `warmly/` directory: `cd warmly && node_modules/.bin/next build`
@@ -453,15 +488,15 @@ For this project: router stays rule-based. A planning agent would be appropriate
 - `run_log.yaml` — structured run history after every GitHub Actions trigger
 - `toneUsed` state tracked in Warmly UI
 
-### Sprint 3 — Preferences (next)
-- `tools/preferences.py` — derive semantic facts from `sent_log.yaml`:
-  - Which tone does the owner prefer per relationship type?
-  - What kinds of context do they add (humour, nostalgia, travel)?
-- `build_prompt()` in `prompts/messages.py` — incorporates preferences into GPT-4o prompt
-- Skip button in Warmly (POST to a `/api/skip` route, marks `skipped=true`)
+### ✅ Sprint 3 — Preferences + Skip
+- `tools/preferences.py` — derives tone preferences and past context themes from `sent_log`; `build_preferences_section()` injects history into every prompt
+- Templates updated with `{preferences_section}` slot — AI now sees what the owner has sent before
+- Skip button in Warmly — ghost CTA at bottom; POST `/api/skip` marks `skipped=true`; sync treats skipped same as sent (no duplicate reminder)
+- 21 new tests
 
-### Sprint 4 — Observability + planning agent
-- Failure alerts (Twilio/email if GitHub Actions fails)
-- Relationship health tracking (days since last message sent)
-- Planning agent for edge cases: "Alice is going through a divorce — should I tone down her anniversary message?"
-- Observability dashboard (simple read from `run_log.yaml`)
+### ✅ Sprint 4 — Health, Planning Agent, Alerts
+- `tools/health.py` — relationship health: `days_since_last_sent()`, `get_relationship_health()` (never/overdue/ok/recent tiers), `health_summary_text()`
+- `router/planning_agent.py` — LLM-based edge case detector; reads person notes, outputs `needs_adjustment`, `reason`, `instruction`, `urgency` (skip/sensitive/normal); fast path for short notes; graceful fallback
+- `scripts/status.py` — CLI dashboard: contacts, upcoming, sent log, run log, LLM config, relationship health; `--full` flag for detail table
+- `.github/workflows/daily_reminder.yml` — failure alert step sends WhatsApp via Twilio if any step fails
+- 33 new tests (138 total)
