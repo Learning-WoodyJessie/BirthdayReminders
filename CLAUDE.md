@@ -9,6 +9,40 @@ See `docs/ROADMAP.md` for project history and what comes next.
 
 ---
 
+## Why this project exists
+
+Built as a deliberate learning project — not to ship a product, but to make agentic AI
+concepts concrete through building. Each architectural layer maps to a concept:
+
+| Layer | Concept being learned |
+|---|---|
+| `tools/` | Tool use and single-responsibility design |
+| `prompts/` | Prompt as product, LLM provider abstraction |
+| `router/` | Rule-based routing vs. LLM planning agents |
+| `data/` + Supabase | Four memory types (semantic, episodic, working, procedural) |
+| Warmly write-back | Feedback loops — how systems improve with use |
+| Planning agent | When rules aren't enough — open-ended judgment |
+
+**Architectural decisions were intentional learning choices, not just engineering decisions.**
+When reading code or suggesting changes, understand that the folder structure, the router/agent
+split, and the feedback loop design exist because they were the concepts under study —
+not because they were the simplest path to a working system.
+
+## Knowledge system
+
+This project uses four documents with distinct jobs:
+
+| Document | Audience | Purpose |
+|---|---|---|
+| `CLAUDE.md` (this file) | Claude Code | Project context — architecture, constraints, lessons, what not to touch |
+| `SKILLS.md` | Owner + Claude | Slash commands for repeatable operations; `/agentic-blueprint` for new projects |
+| `LEARNING.md` | Owner | Personal concept journal — what clicked, where to apply next |
+| `/agentic-blueprint` skill | Owner | 6-step framework for starting any new agentic project |
+
+---
+
+---
+
 ## Architecture
 
 ```
