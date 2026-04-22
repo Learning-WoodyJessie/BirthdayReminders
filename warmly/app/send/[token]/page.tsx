@@ -35,10 +35,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
   const [voiceError, setVoiceError]     = useState('')
   const [copied, setCopied]             = useState(false)
   const [sent, setSent]                 = useState(false)
-  const [sendingVoice, setSendingVoice] = useState(false)
   const [voiceSent, setVoiceSent]       = useState(false)
-  const [voiceSendErr, setVoiceSendErr] = useState('')
-  const [voiceWhatsAppUrl, setVoiceWaUrl] = useState('')
   const [error, setError]               = useState('')
   const mediaRef                        = useRef<MediaRecorder | null>(null)
   const chunksRef                       = useRef<Blob[]>([])
@@ -107,33 +104,31 @@ export default function SendPage({ params }: { params: { token: string } }) {
     }
   }
 
-  async function sendVoiceNote(toSelf: boolean) {
+  function sendVoiceNote() {
     if (!voiceNote) return
-    setSendingVoice(true); setVoiceSendErr('')
-    try {
-      // Upload audio, get a public URL
-      const form = new FormData()
-      const ext  = voiceNote.type.includes('mp4') ? 'mp4' : 'webm'
-      form.append('audio', voiceNote, `voice.${ext}`)
-      form.append('token', params.token)
-      form.append('to_self', toSelf ? 'true' : 'false')
-      const res  = await fetch('/api/send-voice', { method: 'POST', body: form })
-      const json = await res.json()
 
-      if (!res.ok) { setVoiceSendErr(json.error ?? 'Upload failed.'); return }
+    // Pre-generate filename so we know the URL before uploading
+    const ext      = voiceNote.type.includes('mp4') ? 'mp4' : voiceNote.type.includes('ogg') ? 'ogg' : 'webm'
+    const filename = `voice-${params.token}-${Date.now()}.${ext}`
+    const appUrl   = process.env.NEXT_PUBLIC_WARMLY_URL ?? window.location.origin
+    const audioUrl = `${appUrl}/api/audio/${filename}`
 
-      // Build WhatsApp URL — store it so user taps directly (window.open after async is blocked on iOS)
-      const audioUrl = json.audio_url ?? ''
-      const phone    = data?.phone?.replace(/\D/g, '') ?? ''
-      const text     = `🎤 Voice note — tap to listen:\n${audioUrl}`
-      const waUrl    = phone
-        ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
-        : `https://wa.me/?text=${encodeURIComponent(text)}`
-      setVoiceWaUrl(waUrl)
-      setVoiceSent(true)
-    } catch (e: unknown) {
-      setVoiceSendErr(e instanceof Error ? e.message : 'Failed to send.')
-    } finally { setSendingVoice(false) }
+    // Open WhatsApp NOW — on direct user tap (before any async, so iOS doesn't block it)
+    const phone = data?.phone?.replace(/\D/g, '') ?? ''
+    const text  = `🎤 Voice note — tap to listen:\n${audioUrl}`
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+      : `https://wa.me/?text=${encodeURIComponent(text)}`
+    window.open(waUrl, '_blank')
+    setVoiceSent(true)
+
+    // Upload in background — WhatsApp is already open
+    const form = new FormData()
+    form.append('audio', voiceNote, filename)
+    form.append('filename', filename)
+    form.append('token', params.token)
+    fetch('/api/send-voice', { method: 'POST', body: form })
+      .catch(e => console.error('[voice upload]', e))
   }
 
   function sendOnWhatsApp() {
@@ -306,40 +301,25 @@ export default function SendPage({ params }: { params: { token: string } }) {
                   <div className="flex items-center gap-2 bg-black/20 rounded-xl p-2 mb-3 border border-white/5">
                     <audio controls src={URL.createObjectURL(voiceNote)} className="flex-1 h-8" />
                     <button
-                      onClick={() => { setVoice(null); setVoiceSendErr('') }}
+                      onClick={() => setVoice(null)}
                       className="w-7 h-7 bg-white/5 text-white/40 rounded-full text-xs hover:bg-white/10
                                  flex items-center justify-center flex-shrink-0"
                     >✕</button>
                   </div>
 
                   <button
-                    onClick={() => sendVoiceNote(false)}
-                    disabled={sendingVoice}
-                    className="w-full py-3 rounded-xl btn-primary text-white text-sm font-bold disabled:opacity-50"
+                    onClick={() => sendVoiceNote()}
+                    className="w-full py-3 rounded-xl btn-primary text-white text-sm font-bold"
                   >
-                    {sendingVoice ? '⏳ Uploading…' : `Send voice note on WhatsApp 🎤`}
+                    Send voice note on WhatsApp 🎤
                   </button>
-                  <p className="text-white/25 text-xs text-center mt-1.5">
-                    Opens WhatsApp with a tap-to-play link
-                  </p>
-                  {voiceSendErr && <p className="text-xs text-red-400 text-center mt-2">{voiceSendErr}</p>}
                 </>
               )}
             </>
           ) : (
-            <div className="py-3">
-              <p className="text-green-400 font-bold text-center">✓ Sent to Twilio!</p>
-              {voiceWhatsAppUrl && (
-                <a
-                  href={voiceWhatsAppUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block w-full py-4 mt-3 rounded-xl btn-primary text-white text-base
-                             font-bold text-center"
-                >
-                  Open WhatsApp 🎤
-                </a>
-              )}
+            <div className="py-3 text-center">
+              <p className="text-green-400 font-bold">✓ Opening WhatsApp…</p>
+              <p className="text-white/30 text-xs mt-1">Your voice note link is in the message.</p>
             </div>
           )}
         </div>
