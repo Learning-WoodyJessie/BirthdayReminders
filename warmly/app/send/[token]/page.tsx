@@ -38,8 +38,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
   const [sendingVoice, setSendingVoice] = useState(false)
   const [voiceSent, setVoiceSent]       = useState(false)
   const [voiceSendErr, setVoiceSendErr] = useState('')
-  const [debugAudioUrl, setDebugUrl]    = useState('')
-  const [debugSid, setDebugSid]         = useState('')
+  const [voiceWhatsAppUrl, setVoiceWaUrl] = useState('')
   const [error, setError]               = useState('')
   const mediaRef                        = useRef<MediaRecorder | null>(null)
   const chunksRef                       = useRef<Blob[]>([])
@@ -123,18 +122,15 @@ export default function SendPage({ params }: { params: { token: string } }) {
 
       if (!res.ok) { setVoiceSendErr(json.error ?? 'Upload failed.'); return }
 
-      // WhatsApp sandbox doesn't support native audio — open WhatsApp with the link instead
+      // Build WhatsApp URL — store it so user taps directly (window.open after async is blocked on iOS)
       const audioUrl = json.audio_url ?? ''
-      const phone    = toSelf
-        ? data?.phone?.replace(/\D/g, '') ?? ''   // fallback: use recipient
-        : data?.phone?.replace(/\D/g, '') ?? ''
-      const text = `🎤 Voice note for you — tap to listen:\n${audioUrl}`
-      const waUrl = phone
+      const phone    = data?.phone?.replace(/\D/g, '') ?? ''
+      const text     = `🎤 Voice note — tap to listen:\n${audioUrl}`
+      const waUrl    = phone
         ? `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
         : `https://wa.me/?text=${encodeURIComponent(text)}`
-      window.open(waUrl, '_blank')
+      setVoiceWaUrl(waUrl)
       setVoiceSent(true)
-      if (audioUrl) setDebugUrl(audioUrl)
     } catch (e: unknown) {
       setVoiceSendErr(e instanceof Error ? e.message : 'Failed to send.')
     } finally { setSendingVoice(false) }
@@ -333,7 +329,17 @@ export default function SendPage({ params }: { params: { token: string } }) {
           ) : (
             <div className="py-3">
               <p className="text-green-400 font-bold text-center">✓ Sent to Twilio!</p>
-              <p className="text-white/30 text-xs text-center mt-1">WhatsApp is opening with your voice note link.</p>
+              {voiceWhatsAppUrl && (
+                <a
+                  href={voiceWhatsAppUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-full py-4 mt-3 rounded-xl btn-primary text-white text-base
+                             font-bold text-center"
+                >
+                  Open WhatsApp 🎤
+                </a>
+              )}
             </div>
           )}
         </div>
