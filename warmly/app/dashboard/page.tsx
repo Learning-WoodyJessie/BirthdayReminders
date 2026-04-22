@@ -168,16 +168,18 @@ export default async function DashboardPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
+                  <div className="flex items-center gap-3">
                     {ev.daysAway === 0 ? (
-                      <span className="gradient-text font-black text-sm">
-                        TODAY
-                      </span>
+                      <span className="gradient-text font-black text-sm">TODAY</span>
                     ) : (
-                      <span className="text-white/60 text-sm">
-                        in {ev.daysAway}d
-                      </span>
+                      <span className="text-white/50 text-sm">in {ev.daysAway}d</span>
                     )}
+                    <Link
+                      href={`/compose/${ev.person.id}?occasion=${ev.occasion}`}
+                      className="btn-primary text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap"
+                    >
+                      ✉️ Write
+                    </Link>
                   </div>
                 </div>
               ))}
