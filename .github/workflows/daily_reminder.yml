@@ -44,3 +44,22 @@ jobs:
 
       - name: Run reminder check
         run: python scripts/check_reminders.py
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN:  ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM:        ${{ secrets.TWILIO_FROM }}
+          MY_WHATSAPP:        ${{ secrets.MY_WHATSAPP_NO }}
+        run: |
+          python -c "
+import os, sys
+sys.path.insert(0, '.')
+from tools.whatsapp import send_whatsapp
+send_whatsapp(
+    os.environ['MY_WHATSAPP'],
+    '🚨 *BirthdayReminders daily run FAILED*\n\nCheck GitHub Actions logs:\nhttps://github.com/Learning-WoodyJessie/BirthdayReminders/actions',
+    label='failure-alert'
+)
+"

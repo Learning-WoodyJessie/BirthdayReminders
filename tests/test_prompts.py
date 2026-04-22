@@ -51,6 +51,7 @@ class TestTemplateFormatting:
             days_away=3,
             notes=person["notes"],
             tone="warm and personal",
+            preferences_section="",
         )
         assert "Sush" in filled
         assert "3" in filled
@@ -67,6 +68,7 @@ class TestTemplateFormatting:
             days_away=0,
             notes="none provided",
             tone="warm and personal",
+            preferences_section="",
         )
         assert "TODAY" in filled
         assert "Sush" in filled

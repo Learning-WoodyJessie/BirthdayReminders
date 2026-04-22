@@ -137,13 +137,31 @@ def sync_sent_log_from_supabase() -> int:
         from supabase import create_client
         client = create_client(supabase_url, supabase_key)
 
-        result = (
+        # Pull both sent AND skipped rows — both suppress future reminders
+        sent_result = (
             client.table("reminders")
             .select("person_name, occasion, sent_at, context_added, tone_selected")
             .eq("whatsapp_sent", True)
             .execute()
         )
-        rows = result.data or []
+        skipped_result = (
+            client.table("reminders")
+            .select("person_name, occasion, skipped_at")
+            .eq("skipped", True)
+            .execute()
+        )
+        # Merge and normalise: use sent_at for sent rows, skipped_at for skipped rows
+        rows = []
+        for r in (sent_result.data or []):
+            rows.append(r)
+        for r in (skipped_result.data or []):
+            rows.append({
+                "person_name":   r["person_name"],
+                "occasion":      r["occasion"],
+                "sent_at":       r.get("skipped_at"),
+                "context_added": None,
+                "tone_selected": None,
+            })
     except Exception as e:
         print(f"  [memory] Supabase sync failed: {e}")
         return 0

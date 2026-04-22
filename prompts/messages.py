@@ -22,7 +22,7 @@ Relationship: {relationship}
 Occasion:     {occasion} — in {days_away} days
 Notes:        {notes}
 Tone:         {tone}
-
+{preferences_section}
 Write a short reminder (2-3 sentences) for the sender:
 1. Alert them the occasion is coming up in {days_away} days
 2. Include a warm, ready-to-send draft message they can copy and send on the day
@@ -36,7 +36,7 @@ Relationship: {relationship}
 Occasion:     {occasion} — TODAY
 Notes:        {notes}
 Tone:         {tone}
-
+{preferences_section}
 Write the actual wish message (2-4 sentences) ready to copy and send RIGHT NOW.
 Address them by first name. Reference specific details from notes where natural.
 Match the tone to the relationship. No hashtags. Sound human, not corporate."""
@@ -58,21 +58,28 @@ def get_template(message_type: str) -> str:
 
 def generate_message(person: dict, occasion: str, days_away: int,
                      message_type: str, tone: str,
-                     provider: LLMProvider = None) -> str:
+                     provider: LLMProvider = None,
+                     preferences_section: str = "") -> str:
     """
     Generate a personalised message using the given LLM provider.
 
     Args:
-        person:       person dict from people.yaml
-        occasion:     "birthday" or "anniversary"
-        days_away:    0 = today, 3 = in 3 days
-        message_type: "reminder" or "wish"
-        tone:         e.g. "warm and personal" or "friendly and professional"
-        provider:     LLMProvider instance. If None, falls back to OpenAIProvider
-                      (uses the OpenAI module-level import so existing tests that
-                      patch prompts.messages.OpenAI continue to work).
+        person:              person dict from people.yaml
+        occasion:            "birthday" or "anniversary"
+        days_away:           0 = today, 3 = in 3 days
+        message_type:        "reminder" or "wish"
+        tone:                e.g. "warm and personal" or "friendly and professional"
+        provider:            LLMProvider instance. If None, falls back to OpenAIProvider
+                             (uses the OpenAI module-level import so existing tests that
+                             patch prompts.messages.OpenAI continue to work).
+        preferences_section: optional block of past-history context to inject into prompt.
+                             Built by tools.preferences.build_preferences_section().
     """
     template = get_template(message_type)
+
+    # Indent the preferences section if present so it reads cleanly in the prompt
+    section = f"\n{preferences_section}\n" if preferences_section else ""
+
     prompt = template.format(
         name=person["name"],
         relationship=person["relationship"],
@@ -80,6 +87,7 @@ def generate_message(person: dict, occasion: str, days_away: int,
         days_away=days_away,
         notes=person.get("notes") or "none provided",
         tone=tone,
+        preferences_section=section,
     )
 
     if provider is not None:

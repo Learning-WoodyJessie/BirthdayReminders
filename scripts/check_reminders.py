@@ -18,13 +18,15 @@ from zoneinfo import ZoneInfo
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from tools.calendar        import find_upcoming
-from tools.whatsapp        import send_whatsapp
-from tools.warmly          import create_warmly_link
-from tools.memory          import load_sent_log, sync_sent_log_from_supabase, append_run_log
-from prompts.messages      import generate_message
-from prompts.llm           import get_provider
-from router.message_router import route
+from tools.calendar              import find_upcoming
+from tools.whatsapp              import send_whatsapp
+from tools.warmly                import create_warmly_link
+from tools.memory                import load_sent_log, sync_sent_log_from_supabase, append_run_log
+from tools.preferences           import build_preferences_section
+from prompts.messages            import generate_message
+from prompts.llm                 import get_provider
+from router.message_router       import route
+from router.planning_agent       import check_for_special_circumstances
 
 
 # ── load resources ────────────────────────────────────────────────────────────
@@ -83,14 +85,33 @@ def main():
             events_skipped += 1
             continue
 
+        # ── planning agent: check for special circumstances ───────────────────
+        plan = check_for_special_circumstances(person, occasion, provider)
+        if plan["needs_adjustment"]:
+            print(f"   ↳ Planning agent: {plan['reason']} — urgency={plan['urgency']}")
+            if plan["urgency"] == "skip":
+                print(f"   ↳ Skipping on planning agent advice.")
+                events_skipped += 1
+                continue
+            # Inject instruction into person notes so the prompt sees it
+            if plan["instruction"]:
+                person = {**person, "notes": (person.get("notes") or "") +
+                          f"\n\n[Special handling note: {plan['instruction']}]"}
+
+        # ── build preferences section from past sends ─────────────────────────
+        prefs_section = build_preferences_section(person["name"], sent_log)
+        if prefs_section:
+            print(f"   ↳ Injecting history into prompt for {person['name']}")
+
         # ── generate message via prompt layer ─────────────────────────────────
         message = generate_message(
-            person       = person,
-            occasion     = occasion,
-            days_away    = days_away,
-            message_type = decision["message_type"],
-            tone         = decision["tone"],
-            provider     = provider,
+            person              = person,
+            occasion            = occasion,
+            days_away           = days_away,
+            message_type        = decision["message_type"],
+            tone                = decision["tone"],
+            provider            = provider,
+            preferences_section = prefs_section,
         )
 
         # ── store in Supabase, get Warmly edit link ───────────────────────────

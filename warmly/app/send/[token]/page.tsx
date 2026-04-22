@@ -37,6 +37,7 @@ export default function SendPage({ params }: { params: { token: string } }) {
   const [copied, setCopied]             = useState(false)
   const [sent, setSent]                 = useState(false)
   const [voiceSent, setVoiceSent]       = useState(false)
+  const [skipped, setSkipped]           = useState(false)
   const [error, setError]               = useState('')
   const mediaRef                        = useRef<MediaRecorder | null>(null)
   const chunksRef                       = useRef<Blob[]>([])
@@ -153,6 +154,15 @@ export default function SendPage({ params }: { params: { token: string } }) {
     }).catch(e => console.error('[mark-sent]', e))
   }
 
+  async function skipReminder() {
+    setSkipped(true)
+    fetch('/api/skip', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: params.token }),
+    }).catch(e => console.error('[skip]', e))
+  }
+
   // ── States ────────────────────────────────────────────────────────────────
   if (loading) return (
     <div className="flex min-h-screen items-center justify-center bg-[#0A0A18]">
@@ -175,6 +185,18 @@ export default function SendPage({ params }: { params: { token: string } }) {
         <div className="text-7xl mb-6 animate-float">🎉</div>
         <h2 className="text-3xl font-black text-white mb-2">Sent!</h2>
         <p className="text-white/40 max-w-xs">You just made {data?.person_name}&apos;s day a little warmer.</p>
+      </div>
+    </div>
+  )
+
+  if (skipped) return (
+    <div className="flex min-h-screen items-center justify-center bg-[#0A0A18] px-6 text-center">
+      <div className="flex flex-col items-center">
+        <div className="text-6xl mb-6">🙈</div>
+        <h2 className="text-2xl font-black text-white mb-2">Skipped</h2>
+        <p className="text-white/40 max-w-xs">
+          No worries — you won&apos;t be reminded about {data?.person_name}&apos;s {data?.occasion} again this year.
+        </p>
       </div>
     </div>
   )
@@ -339,7 +361,17 @@ export default function SendPage({ params }: { params: { token: string } }) {
 
       </div>
 
-      <p className="text-center text-white/15 text-xs mt-10">Made with Warmly 🌻</p>
+      {/* ── Skip ─────────────────────────────────────────────────────────── */}
+      <div className="px-4 max-w-lg mx-auto mt-2">
+        <button
+          onClick={skipReminder}
+          className="w-full py-2 rounded-xl text-white/25 text-xs hover:text-white/50 transition-all"
+        >
+          Skip this reminder — don&apos;t remind me again this year
+        </button>
+      </div>
+
+      <p className="text-center text-white/15 text-xs mt-6">Made with Warmly 🌻</p>
     </main>
   )
 }
