@@ -19,9 +19,8 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const audioFile   = formData.get('audio') as File | null
-    const token       = formData.get('token') as string | null
-    const messageText = (formData.get('message') as string | null) ?? ''
-    const toSelf      = formData.get('to_self') === 'true'
+    const token  = formData.get('token') as string | null
+    const toSelf = formData.get('to_self') === 'true'
 
     if (!audioFile || !token) {
       return NextResponse.json({ error: 'Missing audio or token' }, { status: 400 })
@@ -83,24 +82,7 @@ export async function POST(req: NextRequest) {
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
     const credentials = Buffer.from(`${accountSid}:${authToken}`).toString('base64')
 
-    // Send the message text first (text message)
-    if (messageText) {
-      const textBody = new URLSearchParams({
-        From: fromNumber,
-        To:   toNumber,
-        Body: messageText,
-      })
-      await fetch(twilioUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${credentials}`,
-          'Content-Type':  'application/x-www-form-urlencoded',
-        },
-        body: textBody.toString(),
-      })
-    }
-
-    // Then send the voice note
+    // Send only the voice note (no text)
     const twilioBody = new URLSearchParams({
       From:     fromNumber,
       To:       toNumber,

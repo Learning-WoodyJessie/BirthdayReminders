@@ -114,7 +114,6 @@ export default function SendPage({ params }: { params: { token: string } }) {
       const ext  = voiceNote.type.includes('mp4') ? 'mp4' : 'webm'
       form.append('audio', voiceNote, `voice.${ext}`)
       form.append('token', params.token)
-      form.append('message', message)
       form.append('to_self', toSelf ? 'true' : 'false')
       const res  = await fetch('/api/send-voice', { method: 'POST', body: form })
       const json = await res.json()
