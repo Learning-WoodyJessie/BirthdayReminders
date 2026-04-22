@@ -68,11 +68,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Serve via Vercel proxy route — guaranteed accessible by Twilio
-    // (Supabase direct URLs can be blocked by RLS even on public buckets)
-    const appUrl   = process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : process.env.NEXT_PUBLIC_WARMLY_URL ?? 'http://localhost:3000'
+    // Use production URL — deployment-specific VERCEL_URL may be blocked by Vercel protection
+    const appUrl   = process.env.NEXT_PUBLIC_WARMLY_URL
+      ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     const audioUrl = `${appUrl}/api/audio/${filename}`
     console.log(`[send-voice] audioUrl=${audioUrl}`)
 
