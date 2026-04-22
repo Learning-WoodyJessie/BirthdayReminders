@@ -8,7 +8,9 @@ Two message types:
 """
 
 import os
-from openai import OpenAI
+from openai import OpenAI  # kept for backward-compat (existing tests patch prompts.messages.OpenAI)
+
+from prompts.llm import LLMProvider, OpenAIProvider
 
 
 # ── Prompt templates ──────────────────────────────────────────────────────────
@@ -55,9 +57,10 @@ def get_template(message_type: str) -> str:
 # ── Generator ─────────────────────────────────────────────────────────────────
 
 def generate_message(person: dict, occasion: str, days_away: int,
-                     message_type: str, tone: str) -> str:
+                     message_type: str, tone: str,
+                     provider: LLMProvider = None) -> str:
     """
-    Generate a personalised message using OpenAI GPT-4o.
+    Generate a personalised message using the given LLM provider.
 
     Args:
         person:       person dict from people.yaml
@@ -65,9 +68,10 @@ def generate_message(person: dict, occasion: str, days_away: int,
         days_away:    0 = today, 3 = in 3 days
         message_type: "reminder" or "wish"
         tone:         e.g. "warm and personal" or "friendly and professional"
+        provider:     LLMProvider instance. If None, falls back to OpenAIProvider
+                      (uses the OpenAI module-level import so existing tests that
+                      patch prompts.messages.OpenAI continue to work).
     """
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"].strip())
-
     template = get_template(message_type)
     prompt = template.format(
         name=person["name"],
@@ -78,6 +82,12 @@ def generate_message(person: dict, occasion: str, days_away: int,
         tone=tone,
     )
 
+    if provider is not None:
+        return provider.generate(prompt)
+
+    # Backward-compatible fallback: use the module-level OpenAI import so that
+    # existing tests which patch `prompts.messages.OpenAI` still work correctly.
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"].strip())
     response = client.chat.completions.create(
         model="gpt-4o",
         max_tokens=300,

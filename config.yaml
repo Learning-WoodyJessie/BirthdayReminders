@@ -1,6 +1,11 @@
 # BirthdayReminders configuration
 reminder_days: [3, 0]   # 3 = advance reminder with draft, 0 = day-of wish to copy-paste
 
+# LLM provider — swap provider/model to use a different model
+llm:
+  provider: openai        # swap to: anthropic
+  model: gpt-4o           # swap to: claude-opus-4-5
+
 # Your WhatsApp number (receives all reminders)
 my_whatsapp: "+1XXXXXXXXXX"   # replace with your number in E.164 format e.g. +14155552671
 

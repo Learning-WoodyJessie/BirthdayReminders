@@ -6,6 +6,7 @@ relationship type, and occasion.
 """
 
 import pytest
+from datetime import date
 from router.message_router import route, _get_message_type, _get_tone, _get_label
 
 
@@ -87,3 +88,64 @@ class TestRoute:
         assert decision["message_type"] == "wish"
         assert decision["tone"] == "warm and personal"
         assert "anniversary" in decision["label"]
+
+
+# ── enhanced routing (should_send, channel, urgency) ─────────────────────────
+
+class TestRouteEnhanced:
+    """Tests for the three new fields added to route() output."""
+
+    def _make_person(self, relationship="friend", phone=None):
+        p = {"name": "Sush", "relationship": relationship}
+        if phone is not None:
+            p["phone"] = phone
+        return p
+
+    def _make_log_entry(self, person_name, occasion, year):
+        return {"person_name": person_name, "occasion": occasion, "year": year}
+
+    # ── should_send ───────────────────────────────────────────────────────────
+
+    def test_should_send_true_when_no_history(self):
+        decision = route(self._make_person(), "birthday", 3, sent_log=[])
+        assert decision["should_send"] is True
+
+    def test_should_send_false_when_already_sent_this_year(self):
+        current_year = date.today().year
+        log = [self._make_log_entry("Sush", "birthday", current_year)]
+        decision = route(self._make_person(), "birthday", 3, sent_log=log)
+        assert decision["should_send"] is False
+
+    def test_should_send_true_for_different_occasion(self):
+        current_year = date.today().year
+        log = [self._make_log_entry("Sush", "birthday", current_year)]
+        decision = route(self._make_person(), "anniversary", 3, sent_log=log)
+        assert decision["should_send"] is True
+
+    def test_should_send_true_for_last_year_entry(self):
+        last_year = date.today().year - 1
+        log = [self._make_log_entry("Sush", "birthday", last_year)]
+        decision = route(self._make_person(), "birthday", 3, sent_log=log)
+        assert decision["should_send"] is True
+
+    # ── channel ───────────────────────────────────────────────────────────────
+
+    def test_channel_warmly_when_phone_present(self):
+        person = self._make_person(phone="+14155550001")
+        decision = route(person, "birthday", 3, sent_log=[])
+        assert decision["channel"] == "warmly"
+
+    def test_channel_digest_only_when_no_phone(self):
+        person = self._make_person()  # no phone key
+        decision = route(person, "birthday", 3, sent_log=[])
+        assert decision["channel"] == "digest_only"
+
+    # ── urgency ───────────────────────────────────────────────────────────────
+
+    def test_urgency_high_when_days_away_zero(self):
+        decision = route(self._make_person(), "birthday", 0, sent_log=[])
+        assert decision["urgency"] == "high"
+
+    def test_urgency_normal_when_days_away_three(self):
+        decision = route(self._make_person(), "birthday", 3, sent_log=[])
+        assert decision["urgency"] == "normal"

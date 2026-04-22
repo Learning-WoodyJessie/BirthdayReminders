@@ -21,7 +21,9 @@ sys.path.insert(0, str(ROOT))
 from tools.calendar        import find_upcoming
 from tools.whatsapp        import send_whatsapp
 from tools.warmly          import create_warmly_link
+from tools.memory          import load_sent_log
 from prompts.messages      import generate_message
+from prompts.llm           import get_provider
 from router.message_router import route
 
 
@@ -46,6 +48,10 @@ def main():
         print("ERROR: MY_WHATSAPP not set.", file=sys.stderr)
         sys.exit(1)
 
+    # ── load sent log + LLM provider ─────────────────────────────────────────
+    sent_log = load_sent_log()
+    provider = get_provider(config)
+
     digest_parts: list[str] = []
 
     for event in find_upcoming(data.get("people", []), reminder_days, today):
@@ -58,7 +64,13 @@ def main():
               f"{'TODAY' if days_away == 0 else f'in {days_away} days'}")
 
         # ── router decides message type + tone ────────────────────────────────
-        decision = route(person, occasion, days_away)
+        decision = route(person, occasion, days_away, sent_log=sent_log)
+
+        # ── skip if already sent this year ────────────────────────────────────
+        if not decision["should_send"]:
+            print(f"   ↳ Skipping — already sent {occasion} message to "
+                  f"{person['name']} this year.")
+            continue
 
         # ── generate message via prompt layer ─────────────────────────────────
         message = generate_message(
@@ -67,6 +79,7 @@ def main():
             days_away    = days_away,
             message_type = decision["message_type"],
             tone         = decision["tone"],
+            provider     = provider,
         )
 
         # ── store in Supabase, get Warmly edit link ───────────────────────────
