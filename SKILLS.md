@@ -2,6 +2,66 @@
 
 Invoke any skill by typing the skill name in Claude Code for this project.
 
+**How to keep this current:**
+- When a debug pattern works reliably → add it to the relevant skill
+- When a new capability is added → add or update the matching skill
+- When a skill gets used and something is wrong → fix it immediately
+- Review `/br-context` at the start of each project to make sure facts are still true
+
+---
+
+## `/agentic-blueprint`
+**Reusable starting point for any new AI agent project. Works across projects — not specific to BirthdayReminders.**
+
+```
+Design a new agentic AI system using this blueprint before writing any code.
+
+STEP 1 — Answer these questions first:
+  - Who is the user? (Personal tool vs. product — this decides whether you need auth)
+  - What is the one outcome they need? (Single sentence)
+  - What would "done" look like? (Learning / build / quality / scope metrics)
+  - Graduation criteria: when would this become a product? (Write it down even if "not now")
+
+STEP 2 — Map the six agentic pillars:
+  Tools     → What can the system DO? (one capability per file, no cross-deps)
+  Memory    → What does it KNOW and REMEMBER?
+              - Semantic:   timeless facts (people profiles, preferences)
+              - Episodic:   timestamped events (sent log, run log, interactions)
+              - Working:    in-RAM during a single run
+              - Procedural: the code itself
+  Prompts   → How does it talk to the LLM? (templates + provider abstraction)
+  Router    → What rule-based decisions need to be made? (finite options → no LLM)
+  Planning  → What judgment calls can't rules handle? (open-ended → LLM agent)
+  Feedback  → How does it improve with use? (write-back on user action → informs next prompt)
+
+STEP 3 — Decide these on day one, don't revisit mid-project:
+  - Storage layer: use a real DB (Supabase), not flat files, even for personal tools
+  - LLM provider: pick one, abstract it behind a factory, don't switch without a specific reason
+  - Folder structure (use this, adapt as needed):
+      tools/      → one file per capability
+      prompts/    → ALL LLM interaction lives here
+      router/     → decision logic only, no execution
+      data/       → config only (contacts/logs in DB)
+      scripts/    → orchestrators only, no business logic
+      tests/      → mirrors tools/ and router/ exactly
+
+STEP 4 — Design the feedback loop before week two:
+  User action (approve / reject / edit)
+    → write-back to storage (what changed, what was chosen)
+    → next generation reads this history
+    → system improves with use
+  Rule: fire on user action, fire-and-forget, never block primary action on write-back
+
+STEP 5 — Write the won't-have list:
+  Features explicitly excluded from this build. Gives permission to say no mid-project.
+
+STEP 6 — Phased plan tied to capabilities, not features:
+  Phase 0: core loop only (the minimum that does the actual job)
+  Phase 1: close the feedback loop + human review layer
+  Phase 2: judgment, depth, edge cases (planning agent, health, preferences)
+  Phase 3+: only if graduation criteria from Step 1 are met
+```
+
 ---
 
 ## `/br-context`
