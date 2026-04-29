@@ -1,0 +1,40 @@
+# Decisions Log
+
+One-line record of every significant architectural or product decision.
+Read this at the start of every `/plan` session to avoid re-litigating past decisions.
+
+Format: `[YYYY-MM-DD] [Feature/Area] — Decision: <chosen>. Rejected: <not chosen>. Because: <reason>.`
+
+---
+
+[2025-XX-XX] [Architecture] — Decision: YAML files as the data store for Python layer (people.yaml, sent_log.yaml, run_log.yaml). Rejected: SQLite or Postgres for Python layer. Because: simplicity — no DB setup, easy human-readable editing, sufficient for single-owner personal tool.
+
+[2025-XX-XX] [Architecture] — Decision: Four-layer architecture (tools / prompts / router / scripts). Rejected: monolithic orchestrator script. Because: this was a deliberate learning project — each folder maps to an agentic concept being studied (tool use, prompt design, routing vs planning).
+
+[2025-XX-XX] [Architecture] — Decision: Rule-based router for message_type/tone/channel decisions. Rejected: LLM for all routing. Because: decision space is finite and enumerable; rules are faster, cheaper, more reliable, and easier to audit.
+
+[2025-XX-XX] [Architecture] — Decision: Planning agent (LLM) for special circumstances detection only. Rejected: rules for detecting sensitive situations in contact notes. Because: open-ended judgment over free-text notes can't be expressed as finite rules.
+
+[2025-XX-XX] [Architecture] — Decision: Warmly as a companion web UI for editing and sending. Rejected: fully automated sends. Because: human control is a first-class feature — owner reviews every message before it reaches the recipient.
+
+[2025-XX-XX] [Prompts] — Decision: System/user message split in all LLM calls. Rejected: single combined prompt string. Because: system message sets stable context (role, constraints, tone rules); user message provides the variable input. Cleaner separation, better adherence.
+
+[2025-XX-XX] [Prompts] — Decision: Few-shot examples in WISH_TEMPLATE and REMINDER_TEMPLATE. Rejected: zero-shot only. Because: zero-shot produces generic outputs; three concrete examples steer the model toward the right specificity and warmth.
+
+[2025-XX-XX] [Prompts] — Decision: temperature=0.8 for message generation, temperature=0.2 for planning agent. Rejected: same temperature for both. Because: message generation benefits from creative variation; planning agent needs deterministic structured output.
+
+[2025-XX-XX] [LLM Provider] — Decision: LLMProvider ABC with OpenAIProvider and AnthropicProvider implementations. Rejected: hardcoded OpenAI calls. Because: single-line swap between providers via config.yaml; no code changes needed to test different models.
+
+[2025-XX-XX] [Delivery] — Decision: Twilio WhatsApp sandbox for delivery. Rejected: email, SMS, native WhatsApp Business API. Because: owner already uses WhatsApp as primary messaging; sandbox is free and sufficient for personal use at single-recipient scale.
+
+[2025-XX-XX] [Audio] — Decision: Upload audio to Supabase Storage and share a tap-to-play link via WhatsApp text. Rejected: native audio message via Twilio attachment. Because: Twilio sandbox throws error 63021 for audio attachments; link-based sharing works across all devices.
+
+[2025-XX-XX] [Audio] — Decision: MIME priority order: audio/ogg;codecs=opus → audio/mp4 → audio/webm. Rejected: audio/webm as default. Because: audio/webm is rejected by WhatsApp; ogg and mp4 are accepted; iOS Safari requires mp4.
+
+[2025-XX-XX] [Auth] — Decision: Remove all auth from Warmly — fully public app. Rejected: Supabase magic link, Google OAuth, Twilio SMS OTP. Because: Supabase free tier email rate limits blocked development; phone OTP requires purchasing a Twilio number; for a single-owner personal tool, auth adds friction without meaningful security benefit.
+
+[2025-XX-XX] [Contacts] — Decision: Add-only contacts in Warmly UI (no edit/delete). Rejected: full CRUD. Because: deliberate simplification — editing contacts via YAML or scripts is sufficient; reduces attack surface on a no-auth public app.
+
+[2025-XX-XX] [Feedback Loop] — Decision: Fire-and-forget write-back on user tap (mark-sent, skip). Rejected: await write-back before opening WhatsApp. Because: `window.open()` must be synchronous on user tap (iOS Safari blocks popups after await); write-back is best-effort and must never block the primary action.
+
+[2026-04-28] [SDLC] — Decision: Integrate personal-sdlc-template workflows into BirthdayReminders. Rejected: continue ad-hoc development without structured workflow. Because: makes the development process repeatable, captures learnings systematically, and aligns with the project's goal of making agentic AI concepts concrete.

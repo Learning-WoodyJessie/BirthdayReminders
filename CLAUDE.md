@@ -7,6 +7,24 @@ generates personalised messages via GPT-4o, and sends a WhatsApp digest via Twil
 
 See `docs/ROADMAP.md` for project history and what comes next.
 
+## Development Workflow
+
+This project uses a 7-step SDLC. Use these slash commands to manage development:
+
+| Command | When to use |
+|---|---|
+| `/start` | Beginning of any new session — orients Claude to current state |
+| `/brainstorm` | Before any new feature — Socratic design, produces a PRD |
+| `/plan` | After design is approved — TDD-first implementation plan |
+| `/build` | Execute the plan — RED-GREEN-REFACTOR cycle per chunk |
+| `/audit` | After building — technical + UX quality gate |
+| `/kaizen` | After audit — continuous improvement pass |
+| `/log` | Capture bugs, debt, or ideas without starting work |
+| `/closeout` | End of session — update docs, commit, push |
+
+Workflow files live in `.agent/workflows/`. Skills reference guides live in `skills/`.
+Project decisions are tracked in `.agent/decisions.log`. Failure patterns in `.agent/gotchas.md`.
+
 ---
 
 ## Why this project exists
